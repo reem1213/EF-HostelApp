@@ -1,0 +1,118 @@
+/* Better Hosteling — landing page
+   Design tokens */
+:root {
+  --ink:   #14232B;
+  --muted: #5A6A70;
+  --line:  #E2E5E0;
+  --card:  #FFFFFF;
+  --teal:  #1F5F5B;
+  --gold:  #D9B25F;
+  --green: #2F7D5B;
+  --amber: #E0A83A;
+  --panel: #14232B;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #1a1410; font-family: 'Inter', system-ui, sans-serif; }
+
+/* Background video + readability scrim */
+.bg {
+  position: fixed; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; z-index: 0;
+}
+.scrim {
+  position: fixed; inset: 0; z-index: 1;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(10,6,4,.55), rgba(10,6,4,0) 55%),
+    linear-gradient(180deg, rgba(8,5,3,.45) 0%, rgba(8,5,3,.12) 30%, rgba(8,5,3,.35) 100%);
+}
+
+/* Hero layout */
+.hero {
+  position: relative; z-index: 2;
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 22px; padding: 34px 20px; text-align: center;
+}
+.copy h1 {
+  margin: 0; font-family: 'DM Serif Display', Georgia, serif; color: #fff;
+  font-size: clamp(34px, 8vw, 52px); line-height: 1.02; letter-spacing: -.01em;
+  text-shadow: 0 2px 24px rgba(0,0,0,.4);
+}
+.copy p {
+  margin: 10px auto 0; max-width: 30ch; color: #f3ede6;
+  font-size: clamp(14px, 3.6vw, 18px); font-weight: 500; line-height: 1.4;
+  text-shadow: 0 1px 14px rgba(0,0,0,.45);
+}
+.copy .kicker {
+  display: inline-block; margin-bottom: 12px; padding: 5px 12px; border-radius: 999px;
+  background: rgba(255,255,255,.14); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+}
+
+/* Phone mockup */
+.phone {
+  width: 300px; max-width: 82vw; aspect-ratio: 300 / 620; flex: none;
+  background: #0c1512; border-radius: 38px; padding: 9px;
+  box-shadow: 0 30px 70px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.06);
+}
+.screen {
+  width: 100%; height: 100%; border-radius: 30px; overflow: hidden;
+  background: #F3F4F1; color: var(--ink); display: flex; flex-direction: column;
+}
+@media (max-height: 720px) {
+  .phone { width: 250px; }
+  .hero { gap: 14px; }
+}
+
+/* App home screen */
+.app-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; padding: 16px 12px 8px; text-align: left; }
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top .name { font-family: 'DM Serif Display', serif; font-size: 17px; color: var(--ink); }
+.top .sync { display: flex; align-items: center; gap: 5px; font-size: 9.5px; color: var(--muted); margin-top: 1px; }
+.dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+.avatar {
+  width: 30px; height: 30px; border-radius: 50%; background: #fff; border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--teal);
+}
+
+.hero-card { background: var(--panel); border-radius: 14px; padding: 12px 14px; color: #F3F4F1; }
+.hero-card .lbl { font-size: 10px; color: #9FB2B7; font-weight: 500; }
+.hero-card .big { font-size: 30px; font-weight: 700; color: var(--gold); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.hero-card .unit { font-size: 13px; font-weight: 500; color: #DCE6E8; }
+.hero-card .sub { font-size: 10px; color: #9FB2B7; margin-top: 2px; }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tile {
+  position: relative; background: #1E3A42; border: 1px solid #2E4E57; border-radius: 12px; padding: 9px 10px;
+  display: flex; flex-direction: column; gap: 5px; min-height: 62px;
+}
+.tile .ic { width: 26px; height: 26px; border-radius: 50%; background: #24444c; display: flex; align-items: center; justify-content: center; }
+.tile.gold .ic { background: var(--gold); }
+.tile .t { font-size: 11px; font-weight: 700; color: #fff; }
+.tile .m { font-size: 9.5px; color: #9FB2B7; font-variant-numeric: tabular-nums; }
+.tile.gold .m { color: #E5C77F; }
+.stat { position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; border-radius: 50%; }
+.stat.a { background: var(--amber); }
+.stat.g { background: var(--green); }
+
+.act { display: flex; align-items: center; gap: 9px; background: #1E3F3C; color: #F3F4F1; border-radius: 12px; padding: 9px 11px; }
+.act-text { display: flex; flex-direction: column; gap: 1px; }
+.act .q { font-size: 8.5px; font-weight: 700; letter-spacing: .12em; color: var(--gold); }
+.act .ttl { font-size: 12px; font-weight: 700; }
+.act .val { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+
+.app-nav { display: flex; height: 46px; background: #fff; border-top: 1px solid var(--line); }
+.app-nav a {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-size: 8.5px; font-weight: 600; color: #9AA6AB; text-decoration: none;
+}
+.app-nav a.on { color: var(--ink); }
+svg { display: block; }
+
+/* Respect reduced-motion: pause the looping video */
+@media (prefers-reduced-motion: reduce) {
+  .bg { display: none; }
+  body { background: #2a1d14; }
+}
