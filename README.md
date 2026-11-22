@@ -1,4 +1,4 @@
-# Better Hosteling — marketing site
+# HostelUp — marketing site
 
 AI-powered SaaS that finds the profit hiding in your hostel. A single-page,
 no-build static site (plain HTML/CSS/JS).
