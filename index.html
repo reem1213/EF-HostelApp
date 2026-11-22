@@ -24,63 +24,33 @@
       <p>AI that finds the profit hiding in your hostel.</p>
     </header>
 
-    <!-- App home-screen preview -->
-    <div class="phone" role="img" aria-label="Preview of the Better Hosteling app home screen">
-      <div class="screen">
-        <div class="app-body">
-          <div class="top">
-            <div>
-              <div class="name">Harborview</div>
-              <div class="sync"><span class="dot"></span>Synced 8 min ago</div>
-            </div>
-            <div class="avatar">HV</div>
-          </div>
+    <!-- Pulsing hostel emblem: rings expand, coins rise to show profit produced -->
+    <div class="emblem" role="img" aria-label="A hostel turning into profit">
+      <span class="ring"></span>
+      <span class="ring"></span>
+      <span class="ring"></span>
 
-          <div class="hero-card">
-            <div class="lbl">Profit found this month</div>
-            <div class="big">+$540<span class="unit">/mo</span></div>
-            <div class="sub">across 3 leaks and 2 upsells</div>
-          </div>
+      <span class="coin c1">$</span>
+      <span class="coin c2">$</span>
+      <span class="coin c3">$</span>
+      <span class="coin c4">$</span>
 
-          <div class="grid">
-            <div class="tile gold">
-              <span class="stat a"></span>
-              <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14232B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c.3-.9 1.2-1.5 2.5-1.5 1.5 0 2.5.7 2.5 1.8 0 2.5-5 1.2-5 3.7 0 1.1 1 1.8 2.5 1.8 1.3 0 2.2-.6 2.5-1.5"/></svg></span>
-              <div><div class="t">Money</div><div class="m">$540 to recover</div></div>
-            </div>
-            <div class="tile">
-              <span class="stat a"></span>
-              <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#DCE6E8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 12l5-5"/></svg></span>
-              <div><div class="t">Costs</div><div class="m">$6.20 / bed</div></div>
-            </div>
-            <div class="tile">
-              <span class="stat g"></span>
-              <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#DCE6E8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a7 7 0 0 0-4 12.7V18h8v-2.3A7 7 0 0 0 12 3z"/><path d="M9.5 21h5"/></svg></span>
-              <div><div class="t">Events</div><div class="m">+$180 this wk</div></div>
-            </div>
-            <div class="tile">
-              <span class="stat g"></span>
-              <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#DCE6E8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19V7"/><path d="M3 15h18v4"/><path d="M21 15v-2.5A2.5 2.5 0 0 0 18.5 10H11v5"/><circle cx="7" cy="12" r="1.8"/></svg></span>
-              <div><div class="t">Housekeeping</div><div class="m">On track</div></div>
-            </div>
-          </div>
+      <div class="badge">
+        <svg width="66" height="66" viewBox="0 0 40 40" fill="none" stroke="#E8C77F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 17 L20 6 L35 17"/>
+          <path d="M8 17 V35 H32 V17"/>
+          <rect x="11" y="20.5" width="5" height="5" rx="0.6"/>
+          <rect x="17.5" y="20.5" width="5" height="5" rx="0.6"/>
+          <rect x="24" y="20.5" width="5" height="5" rx="0.6"/>
+          <rect x="11" y="27.5" width="5" height="7.5" rx="0.6"/>
+          <rect x="24" y="27.5" width="5" height="7.5" rx="0.6"/>
+          <path d="M17.5 35 V28.5 Q20 27 22.5 28.5 V35" />
+        </svg>
+      </div>
 
-          <div class="act">
-            <span class="act-text">
-              <span class="q">TODAY</span>
-              <span class="ttl">Fix your biggest leak</span>
-            </span>
-            <span class="val">+$210/mo</span>
-          </div>
-        </div>
-
-        <nav class="app-nav" aria-label="App navigation">
-          <a class="on" href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14232B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>Home</a>
-          <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA6AB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c.3-.9 1.2-1.5 2.5-1.5 1.5 0 2.5.7 2.5 1.8 0 2.5-5 1.2-5 3.7 0 1.1 1 1.8 2.5 1.8 1.3 0 2.2-.6 2.5-1.5"/></svg>Money</a>
-          <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA6AB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 12l5-5"/></svg>Costs</a>
-          <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA6AB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>Reports</a>
-          <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA6AB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>More</a>
-        </nav>
+      <div class="profit-chip">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1F5F5B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
+        +$540/mo
       </div>
     </div>
   </main>
