@@ -1,39 +1,79 @@
-# Better Hosteling — landing page
+# Better Hosteling — marketing site
 
-AI-powered SaaS that finds the profit hiding in your hostel.
+AI-powered SaaS that finds the profit hiding in your hostel. A no-build static
+site (plain HTML/CSS/JS) you can deploy anywhere.
 
-A single-page, no-build landing page: a full-screen background video with the
-app's home screen previewed on top, plus the headline and tagline.
+## Pages
 
-## Files
-
-| File | Purpose |
+| File | What it is |
 | --- | --- |
-| `index.html` | The landing page markup |
+| `index.html` | Landing page — background video, headline, pulsing hostel emblem |
+| `how-it-works.html` | How the app works (3 steps) + in-app screen previews |
+| `waitlist.html` | "Get early access" email signup, wired to Supabase |
 | `styles.css` | All styling (design tokens at the top) |
-| `assets/bg.mp4` | Background video (cropped + compressed, ~560 KB) |
-| `assets/bg-poster.jpg` | Poster frame shown before the video loads |
+| `assets/bg.mp4` | Background video (~560 KB) |
+| `assets/bg-poster.jpg` | Poster frame before the video loads |
 
 ## Run locally
 
-No build step. Serve the folder with any static server, e.g.:
-
 ```bash
-python3 -m http.server 8000
-# then open http://localhost:8000
+python3 -m http.server 8000   # then open http://localhost:8000
 ```
-
-(Opening `index.html` directly works too, but a server is recommended so the
-video and fonts load reliably.)
 
 ## Deploy
 
-Works as-is on any static host — GitHub Pages, Netlify, Vercel, Cloudflare Pages.
-For GitHub Pages: Settings → Pages → deploy from the `main` branch, root folder.
+Works as-is on GitHub Pages, Netlify, Vercel, Cloudflare Pages.
+GitHub Pages: Settings → Pages → deploy from `main`, root folder.
 
-## Editing the content
+## Waitlist database (Supabase)
 
-- **Headline / tagline:** the `.copy` block in `index.html`.
-- **App preview numbers and tiles:** the `.phone` block in `index.html`.
+The signup form writes to a Supabase table. Why Supabase: it's a real Postgres
+database with a browser-safe API and a free tier, the anon key is meant to be
+public when paired with a Row-Level-Security policy, and you'll reuse the same
+database for the app itself.
+
+**1. Create the table and policy** — in your Supabase project, open the SQL
+editor and run:
+
+```sql
+create table public.waitlist (
+  id         uuid primary key default gen_random_uuid(),
+  email      text not null unique,
+  source     text,
+  created_at timestamptz not null default now()
+);
+
+-- Lock the table down, then allow ONLY anonymous inserts (no reads).
+alter table public.waitlist enable row level security;
+
+create policy "anon can join waitlist"
+  on public.waitlist for insert
+  to anon
+  with check (true);
+```
+
+With no `select` policy, visitors can add their email but cannot read the list;
+you view signups from the Supabase dashboard.
+
+**2. Add your keys** — in `waitlist.html`, replace the two placeholders near the
+bottom with the values from Project Settings → API:
+
+```js
+const SUPABASE_URL = "https://xxxx.supabase.co";
+const SUPABASE_ANON_KEY = "eyJ...";   // the "anon public" key, NOT service_role
+```
+
+Until the keys are filled in, the form validates the email and shows a notice
+instead of saving — so the page is safe to ship before the database is live.
+
+### Alternatives considered
+
+- **Netlify Forms / Formspree** — zero-code, but only email you submissions; not
+  a database you can build the product on.
+- **Firebase (Firestore)** — fine, but NoSQL; Postgres suits financial data better.
+
+## Editing content
+
+- **Headline / tagline / emblem:** `index.html`.
+- **Steps and app previews:** `how-it-works.html`.
 - **Colors:** the `:root` design tokens at the top of `styles.css`.
-- **Background video:** replace `assets/bg.mp4` (and its poster).
