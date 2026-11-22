@@ -3,71 +3,172 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Better Hosteling</title>
+  <title>Better Hosteling — AI-powered profit for your hostel</title>
   <meta name="description" content="AI-powered SaaS that finds the profit hiding in your hostel.">
   <link rel="canonical" href="https://reem1213.github.io/EF-HostelApp/">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://reem1213.github.io/EF-HostelApp/">
   <meta property="og:title" content="Better Hosteling — AI-powered profit for your hostel">
   <meta property="og:description" content="AI that finds the profit hiding in your hostel.">
-  <meta property="og:image" content="https://reem1213.github.io/EF-HostelApp/assets/bg-poster.jpg">
+  <meta property="og:image" content="https://reem1213.github.io/EF-HostelApp/assets/house.jpg">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 </head>
-<body class="landing">
-  <!-- Background video -->
-  <video class="bg" autoplay muted loop playsinline poster="assets/bg-poster.jpg">
-    <source src="assets/bg.mp4" type="video/mp4">
-  </video>
-  <div class="scrim"></div>
-
-  <header class="nav">
-    <a class="brand" href="index.html">Better Hosteling</a>
+<body>
+  <header class="nav" id="nav">
+    <a class="brand" href="#top">Better Hosteling</a>
     <nav class="links">
-      <a href="how-it-works.html">How it works</a>
-      <a class="btn" href="waitlist.html">Get early access</a>
+      <a href="#how">How it works</a>
+      <a href="#app">Inside the app</a>
+      <a class="btn" href="#join">Get early access</a>
     </nav>
   </header>
 
-  <!-- Hero -->
-  <main class="hero">
-    <header class="copy">
-      <span class="kicker">AI-powered hostel SaaS</span>
-      <h1>Better hosteling</h1>
-      <p>AI that finds the profit hiding in your hostel.</p>
-    </header>
+  <!-- ===== HERO ===== -->
+  <section class="hero" id="top">
+    <video class="bg" autoplay muted loop playsinline poster="assets/bg-poster.jpg">
+      <source src="assets/bg.mp4" type="video/mp4">
+    </video>
+    <div class="scrim"></div>
 
-    <!-- Pulsing hostel emblem: rings expand, coins rise to show profit produced -->
-    <div class="emblem" role="img" aria-label="A hostel turning into profit">
-      <span class="ring"></span>
-      <span class="ring"></span>
-      <span class="ring"></span>
+    <div class="hero-inner">
+      <header class="copy">
+        <span class="kicker">AI-powered hostel SaaS</span>
+        <h1>Better hosteling</h1>
+        <p>AI that finds the profit hiding in your hostel.</p>
+      </header>
 
-      <span class="coin c1">$</span>
-      <span class="coin c2">$</span>
-      <span class="coin c3">$</span>
-      <span class="coin c4">$</span>
-
-      <div class="badge">
-        <svg width="66" height="66" viewBox="0 0 40 40" fill="none" stroke="#E8C77F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M5 17 L20 6 L35 17"/>
-          <path d="M8 17 V35 H32 V17"/>
-          <rect x="11" y="20.5" width="5" height="5" rx="0.6"/>
-          <rect x="17.5" y="20.5" width="5" height="5" rx="0.6"/>
-          <rect x="24" y="20.5" width="5" height="5" rx="0.6"/>
-          <rect x="11" y="27.5" width="5" height="7.5" rx="0.6"/>
-          <rect x="24" y="27.5" width="5" height="7.5" rx="0.6"/>
-          <path d="M17.5 35 V28.5 Q20 27 22.5 28.5 V35" />
-        </svg>
+      <div class="emblem" role="img" aria-label="A glowing hostel at night, turning into profit">
+        <div class="glow"></div>
+        <span class="coin c1">$</span>
+        <span class="coin c2">$</span>
+        <span class="coin c3">$</span>
+        <div class="house-frame"><img src="assets/house.jpg" alt="A hostel glowing warmly at night on its own little island"></div>
+        <div class="profit-chip">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1F5F5B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
+          +$540/mo
+        </div>
       </div>
 
-      <div class="profit-chip">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1F5F5B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
-        +$540/mo
+      <a class="cta" href="#join">Get early access</a>
+      <a class="scroll-cue" href="#how" aria-label="Scroll to how it works">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </a>
+    </div>
+  </section>
+
+  <!-- ===== HOW IT WORKS ===== -->
+  <section class="band" id="how">
+    <div class="wrap">
+      <div class="band-head">
+        <span class="eyebrow">How it works</span>
+        <h2>Find the money hiding in your hostel</h2>
+        <p>Better Hosteling connects to the tools you already use, reads your numbers like a finance team would, and shows you exactly what to fix — and what it's worth.</p>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="num">1</div><h3>Connect your tools</h3><p>Link your booking system and bank or card in a couple of taps. Read-only — nothing changes without your approval.</p></div>
+        <div class="step"><div class="num">2</div><h3>AI finds the money</h3><p>It spots cost leaks, benchmarks you against similar hostels, and surfaces upsells — each with a dollar value and a confidence level.</p></div>
+        <div class="step"><div class="num">3</div><h3>You approve, profit grows</h3><p>Act on the ranked to-dos, track what you've recovered, and get a monthly profit report. The number only goes up.</p></div>
       </div>
     </div>
-  </main>
+  </section>
+
+  <!-- ===== INSIDE THE APP ===== -->
+  <section class="band alt" id="app">
+    <div class="wrap">
+      <div class="band-head"><span class="eyebrow">Inside the app</span><h2>A look at what you'd use</h2></div>
+      <div class="gallery">
+        <div class="device">
+          <div class="screen"><div class="scr-body">
+            <div class="scr-top"><span class="nm">Harborview</span><span class="sy"><span class="d"></span>Synced</span></div>
+            <div class="hcard"><div class="l">Profit found this month</div><div class="b">+$540</div><div class="s">across 3 leaks and 2 upsells</div></div>
+            <div class="mini-grid">
+              <div class="mtile"><span class="mt">Money</span><span class="mm">$540 to recover</span></div>
+              <div class="mtile"><span class="mt">Costs</span><span class="mm">$6.20 / bed</span></div>
+              <div class="mtile"><span class="mt">Events</span><span class="mm">+$180 / wk</span></div>
+              <div class="mtile"><span class="mt">Housekeeping</span><span class="mm">On track</span></div>
+            </div>
+          </div><div class="scr-nav"><i></i><i></i><i></i><i></i><i></i></div></div>
+          <div class="label">Home</div>
+        </div>
+        <div class="device">
+          <div class="screen"><div class="scr-body">
+            <div class="scr-top"><span class="nm">Money</span><span class="sy"><span class="d"></span>3 leaks</span></div>
+            <div class="hcard"><div class="l">Savings identified</div><div class="b">$540<span style="font-size:11px;font-weight:500;color:#DCE6E8">/mo</span></div><div class="s">from 214 transactions</div></div>
+            <div class="leak"><span><span class="lt">Laundry cost per bed</span><br><span class="ls">Up 18% vs last month</span></span><span class="lv">$210</span></div>
+            <div class="leak" style="border-left-color:#E0A83A"><span><span class="lt">Booking-site commission</span><br><span class="ls">74% via OTAs</span></span><span class="lv">$180</span></div>
+            <div class="leak" style="border-left-color:#E0A83A"><span><span class="lt">Duplicate software</span><br><span class="ls">Two tools, one job</span></span><span class="lv">$150</span></div>
+          </div><div class="scr-nav"><i></i><i></i><i></i><i></i><i></i></div></div>
+          <div class="label">Find the leaks</div>
+        </div>
+        <div class="device">
+          <div class="screen"><div class="scr-body">
+            <div class="scr-top"><span class="nm">Report</span><span class="sy"><span class="d"></span>Ready</span></div>
+            <div class="hcard"><div class="l">Recovered to date</div><div class="b">$210<span style="font-size:11px;font-weight:500;color:#DCE6E8">/mo</span></div><div class="s">profit health 72 &middot; +4</div></div>
+            <div class="bars"><span style="height:34%"></span><span style="height:52%"></span><span style="height:70%"></span><span style="height:92%"></span></div>
+            <div class="leak" style="border-left-color:#2F7D5B"><span><span class="lt">October report</span><br><span class="ls">Emailed &amp; saved</span></span><span class="lv">PDF</span></div>
+          </div><div class="scr-nav"><i></i><i></i><i></i><i></i><i></i></div></div>
+          <div class="label">Monthly report</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== JOIN / WAITLIST ===== -->
+  <section class="band join" id="join">
+    <div class="wrap">
+      <div class="band-head"><span class="eyebrow light">Early access</span><h2 class="on-dark">Be first in line</h2><p class="on-dark">We're onboarding a small group of hostels first. Drop your email and we'll alert you the moment Better Hosteling opens up.</p></div>
+      <div class="wl">
+        <form class="wl-form" id="wlForm" novalidate>
+          <label for="email" style="position:absolute;left:-9999px">Email address</label>
+          <input id="email" name="email" type="email" placeholder="you@yourhostel.com" autocomplete="email" required>
+          <button type="submit" id="wlBtn">Notify me</button>
+        </form>
+        <div class="wl-note info" id="wlNote" role="status" aria-live="polite">No spam — just one email when we launch.</div>
+        <div class="wl-perks">
+          <span><span class="check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>First access</span>
+          <span><span class="check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Founding-hostel pricing</span>
+          <span><span class="check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>A free first audit</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">© Better Hosteling — AI-powered profit for independent hostels.</footer>
+
+  <script>
+    // nav turns solid after scrolling past the hero
+    const nav = document.getElementById("nav");
+    const onScroll = () => nav.classList.toggle("solid", window.scrollY > 70);
+    onScroll(); window.addEventListener("scroll", onScroll, { passive: true });
+
+    // ---- Supabase waitlist ----
+    const SUPABASE_URL = "YOUR_SUPABASE_URL";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+    const configured = SUPABASE_URL && SUPABASE_ANON_KEY && !SUPABASE_URL.startsWith("YOUR_") && !SUPABASE_ANON_KEY.startsWith("YOUR_") && window.supabase;
+    const client = configured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+    const form = document.getElementById("wlForm"), input = document.getElementById("email"), btn = document.getElementById("wlBtn"), note = document.getElementById("wlNote");
+    const setNote = (m, k) => { note.textContent = m; note.className = "wl-note " + k; };
+    const validEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = input.value.trim().toLowerCase();
+      if (!validEmail(email)) { setNote("Please enter a valid email address.", "err"); input.focus(); return; }
+      if (!configured) { setNote("Thanks! The waitlist database isn't connected yet — add your Supabase keys in index.html to start collecting signups (see README).", "info"); return; }
+      btn.disabled = true; setNote("Adding you…", "info");
+      const { error } = await client.from("waitlist").insert({ email, source: "landing" });
+      if (error) {
+        if (error.code === "23505") { setNote("You're already on the list — we'll be in touch!", "ok"); form.reset(); }
+        else { setNote("Something went wrong. Please try again in a moment.", "err"); btn.disabled = false; }
+        return;
+      }
+      setNote("You're on the list! We'll email you the moment we launch.", "ok"); form.reset();
+    });
+  </script>
 </body>
 </html>
