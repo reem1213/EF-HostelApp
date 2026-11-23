@@ -50,14 +50,14 @@ a { color: inherit; } svg { display: block; } img { display: block; max-width: 1
 @keyframes breathe { 0%,100% { transform: scale(.9); opacity: .55; } 50% { transform: scale(1.12); opacity: .85; } }
 .coin-badge {
   position: relative; z-index: 1; width: clamp(172px,48vw,210px); height: clamp(172px,48vw,210px);
-  border-radius: 50%; background: radial-gradient(circle at 50% 36%, #e96f23, #14232B 80%);
+  border-radius: 50%; background: radial-gradient(circle at 50% 34%, #F3A457, #C85A1E 92%);
   display: flex; align-items: center; justify-content: center; cursor: pointer; outline: none;
-  box-shadow: 0 18px 50px rgba(0,0,0,.5), 0 0 0 3px rgba(232,199,127,.85), 0 0 50px rgba(217,178,95,.4);
+  box-shadow: 0 18px 50px rgba(0,0,0,.42), 0 0 60px rgba(226,110,35,.45);
   transition: transform .4s cubic-bezier(.2,.8,.2,1), box-shadow .4s;
 }
-.coin-badge:hover, .coin-badge:focus-visible { transform: scale(1.12); box-shadow: 0 24px 64px rgba(0,0,0,.55), 0 0 0 3px #E8C77F, 0 0 78px rgba(217,178,95,.6); }
+.coin-badge:hover, .coin-badge:focus-visible { transform: scale(1.12); box-shadow: 0 24px 64px rgba(0,0,0,.5), 0 0 92px rgba(226,110,35,.6); }
 .coin-badge .blob { width: 64%; height: 64%; transition: opacity .3s ease, transform .45s ease; }
-.coin-badge .dollar { position: absolute; font-family: var(--display); font-weight: 700; font-size: clamp(96px,26vw,124px); line-height: 1; color: #E8C77F; opacity: 0; transform: scale(.5); transition: opacity .3s ease, transform .45s cubic-bezier(.2,.8,.2,1); text-shadow: 0 6px 26px rgba(0,0,0,.4); }
+.coin-badge .dollar { position: absolute; font-family: var(--display); font-weight: 700; font-size: clamp(96px,26vw,124px); line-height: 1; color: #FFF4E6; opacity: 0; transform: scale(.5); transition: opacity .3s ease, transform .45s cubic-bezier(.2,.8,.2,1); text-shadow: 0 6px 26px rgba(0,0,0,.4); }
 .coin-badge:hover .blob, .coin-badge:focus-visible .blob { opacity: 0; transform: scale(1.4) rotate(8deg); }
 .coin-badge:hover .dollar, .coin-badge:focus-visible .dollar { opacity: 1; transform: scale(1); }
 .coin {
