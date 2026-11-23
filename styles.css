@@ -50,7 +50,7 @@ a { color: inherit; } svg { display: block; } img { display: block; max-width: 1
 @keyframes breathe { 0%,100% { transform: scale(.9); opacity: .55; } 50% { transform: scale(1.12); opacity: .85; } }
 .coin-badge {
   position: relative; z-index: 1; width: clamp(172px,48vw,210px); height: clamp(172px,48vw,210px);
-  border-radius: 50%; background: radial-gradient(circle at 50% 36%, #246b66, #14232B 80%);
+  border-radius: 50%; background: radial-gradient(circle at 50% 36%, #e96f23, #14232B 80%);
   display: flex; align-items: center; justify-content: center; cursor: pointer; outline: none;
   box-shadow: 0 18px 50px rgba(0,0,0,.5), 0 0 0 3px rgba(232,199,127,.85), 0 0 50px rgba(217,178,95,.4);
   transition: transform .4s cubic-bezier(.2,.8,.2,1), box-shadow .4s;
