@@ -74,8 +74,8 @@ you view signups from the Supabase dashboard.
 bottom with the values from Project Settings → API:
 
 ```js
-const SUPABASE_URL = "https://xxxx.supabase.co";
-const SUPABASE_ANON_KEY = "eyJ...";   // the "anon public" key, NOT service_role
+const SUPABASE_URL = https://ncctnpvnqlkqnvlscipc.supabase.co/rest/v1/;
+const SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jY3RucHZucWxrcW52bHNjaXBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU0MDY3MzAsImV4cCI6MjExMDk4MjczMH0.STiZK2x6lx3P1zCXcTQYNmufoBoHpnAJE_uBC0Thmrk;   // the "anon public" key, NOT service_role
 ```
 
 Until the keys are filled in, the form validates the email and shows a notice
