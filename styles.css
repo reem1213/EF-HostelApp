@@ -46,6 +46,9 @@ a { color: inherit; } svg { display: block; } img { display: block; max-width: 1
 
 /* emblem: blob-in-a-circle that zooms into a $ on hover */
 .emblem { position: relative; display: flex; align-items: center; justify-content: center; margin-top: 6px; animation: pulse 2s infinite;}
+@keyframes pulse { 0%, 100% {  transform: scale(1); }  50% {  transform: scale(1.06);}
+                  
+}
 /*=== here is my edit ===*/
 .coin-badge {
   position: relative; z-index: 1; width: clamp(172px,48vw,210px); height: clamp(172px,48vw,210px);
