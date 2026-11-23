@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://reem1213.github.io/EF-HostelApp/sitemap.xml
