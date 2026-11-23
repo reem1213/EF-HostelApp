@@ -63,12 +63,7 @@ a { color: inherit; } svg { display: block; } img { display: block; max-width: 1
 .coin-badge .dollar { position: absolute; font-family: var(--display); font-weight: 700; font-size: clamp(96px,26vw,124px); line-height: 1; color: #FFF4E6; opacity: 0; transform: scale(.5); transition: opacity .45s ease, transform .6s cubic-bezier(.2,.8,.2,1); text-shadow: 0 6px 26px rgba(0,0,0,.4); }
 .coin-badge:hover .blob, .coin-badge:focus-visible .blob { opacity: 0; transform: scale(1.4) rotate(8deg); }
 .coin-badge:hover .dollar, .coin-badge:focus-visible .dollar { opacity: 1; transform: scale(1); }
-.coin {
-  position: absolute; bottom: 42px; z-index: 2; width: 26px; height: 26px; border-radius: 50%;
-  background: transparent; font-weight: 700; font-size: 15px; font-family: var(--display);
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 5px 12px rgba(0,0,0,.35), inset 0 0 0 1.5px rgba(255,255,255,.35); opacity: 0; animation: floatUp 3.8s ease-in infinite;
-}
+/*=========edit hereeeee=========*/
 
 
 .coin.c1 { left: 14px; animation-delay: 0s; } .coin.c2 { right: 16px; animation-delay: 1.3s; } .coin.c3 { left: 50%; margin-left: -13px; animation-delay: 2.5s; }
