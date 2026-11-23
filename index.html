@@ -200,8 +200,10 @@
     });
 
     // ---- Supabase waitlist ----
-    const SUPABASE_URL = "https://ncctnpvnqlkqnvlscipc.supabase.co/rest/v1/";
+    let SUPABASE_URL = "https://ncctnpvnqlkqnvlscipc.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jY3RucHZucWxrcW52bHNjaXBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU0MDY3MzAsImV4cCI6MjExMDk4MjczMH0.STiZK2x6lx3P1zCXcTQYNmufoBoHpnAJE_uBC0Thmrk";
+    // Be forgiving: the library adds /rest/v1 itself, so strip it (and any trailing slash) if it was pasted in.
+    SUPABASE_URL = SUPABASE_URL.replace(/\/+$/, "").replace(/\/rest\/v1$/, "");
     const configured = SUPABASE_URL && SUPABASE_ANON_KEY && !SUPABASE_URL.startsWith("YOUR_") && !SUPABASE_ANON_KEY.startsWith("YOUR_") && window.supabase;
     const client = configured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
@@ -217,8 +219,9 @@
       btn.disabled = true; setNote("Adding you…", "info");
       const { error } = await client.from("waitlist").insert({ email, source: "landing" });
       if (error) {
+        console.error("Waitlist insert failed:", error);
         if (error.code === "23505") { setNote("You're already on the list — we'll be in touch!", "ok"); form.reset(); }
-        else { setNote("Something went wrong. Please try again in a moment.", "err"); btn.disabled = false; }
+        else { setNote("Couldn't save your email: " + (error.message || "unknown error") + ". Please try again.", "err"); btn.disabled = false; }
         return;
       }
       setNote("You're on the list! We'll email you the moment we launch.", "ok"); form.reset();
