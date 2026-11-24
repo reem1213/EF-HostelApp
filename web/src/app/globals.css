@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* Design tokens from the FlutterFlow screens (Roam Quarter Hostel). */
+@theme inline {
+  --color-bg: #f4f3ef;
+  --color-surface: #ffffff;
+  --color-ink: #1b1b1a;
+  --color-muted: #7b7b77;
+  --color-hairline: #e6e4de;
+  --color-dark: #13232b;
+  --color-dark-text: #d9e3e6;
+  --color-gold: #c9a44c;
+  --color-teal: #1f5e5a;
+  --color-teal-soft: #dde9e6;
+  --color-green: #2e7d57;
+  --color-red: #b4442f;
+  --color-amber: #a7782a;
+  --color-ring: #1f5e5a;
+
+  --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-cormorant), ui-serif, Georgia, serif;
+}
+
+html {
+  background: var(--color-bg);
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
