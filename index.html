@@ -23,6 +23,7 @@
     <a class="brand" href="#top">HostelPulse</a>
     <nav class="links">
       <a href="#how">How it works</a>
+      <a href="#ota">OTA calculator</a>
       <a href="#app">A look inside the app</a>
       <a class="btn" href="#join">Get early access</a>
     </nav>
@@ -68,6 +69,82 @@
         <div class="step reveal"><div class="num">1</div><h3>Connect your tools</h3><p>Link your Property Management System, credit cards, and other software you already use in a couple of taps. </p></div>
         <div class="step reveal"><div class="num">2</div><h3>AI analyzes your operations</h3><p>HostelPulse spots areas of growth, benchmarks you against other hostels, and surfaces upsells - each with a dollar value. </p></div>
         <div class="step reveal"><div class="num">3</div><h3>Track your growth</h3><p>Act on the ranked to-dos, track what you've recovered, and get a monthly profit report. </p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== OTA CALCULATOR ===== -->
+  <section class="band alt" id="ota">
+    <div class="wrap">
+      <div class="band-head reveal">
+        <span class="eyebrow">Free tool</span>
+        <h2>What are OTAs really costing you?</h2>
+        <p>Booking.com, Hostelworld and the rest take a cut of every reservation. See your yearly bill — and what you'd keep by moving more bookings direct.</p>
+      </div>
+
+      <div class="calc-card reveal">
+        <div class="calc-inputs">
+          <div class="calc-field">
+            <label for="cBeds">Number of beds</label>
+            <input id="cBeds" type="number" min="1" inputmode="numeric" value="40">
+          </div>
+          <div class="calc-row">
+            <div class="calc-field">
+              <label for="cMin">Lowest bed price / night</label>
+              <div class="calc-money"><span>$</span><input id="cMin" type="number" min="0" value="18"></div>
+            </div>
+            <div class="calc-field">
+              <label for="cMax">Highest bed price / night</label>
+              <div class="calc-money"><span>$</span><input id="cMax" type="number" min="0" value="45"></div>
+            </div>
+          </div>
+          <div class="calc-field">
+            <label for="cOcc">Average occupancy <b id="occVal">72%</b></label>
+            <input id="cOcc" type="range" min="0" max="100" value="72">
+          </div>
+          <div class="calc-field">
+            <label for="cOta">Bookings through OTAs <b id="otaVal">65%</b></label>
+            <input id="cOta" type="range" min="0" max="100" value="65">
+          </div>
+          <div class="calc-row">
+            <div class="calc-field">
+              <label for="cSel">Main OTA</label>
+              <select id="cSel">
+                <option value="15">Booking.com</option>
+                <option value="15">Hostelworld</option>
+                <option value="18">Expedia</option>
+                <option value="20">Agoda</option>
+                <option value="15.5">Airbnb</option>
+                <option value="15">Other</option>
+              </select>
+            </div>
+            <div class="calc-field">
+              <label for="cComm">Commission <b>%</b></label>
+              <div class="calc-money"><input id="cComm" type="number" min="0" max="100" step="0.5" value="15"><span>%</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="calc-result">
+          <div class="calc-rlabel">Your OTA commission bill</div>
+          <div class="calc-big" id="oCost">$32,285<span>/yr</span></div>
+          <div class="calc-stats">
+            <div><span class="cs-v" id="oRate">$32</span><span class="cs-l">Avg rate / bed</span></div>
+            <div><span class="cs-v" id="oNights">10,512</span><span class="cs-l">Occupied bed-nights / yr</span></div>
+            <div><span class="cs-v" id="oPct">9.7%</span><span class="cs-l">of revenue</span></div>
+          </div>
+          <hr class="calc-hr">
+          <div class="calc-field dark">
+            <label for="cShift">Move <b id="shiftVal">30%</b> of OTA bookings to direct</label>
+            <input id="cShift" type="range" min="0" max="100" value="30">
+          </div>
+          <div class="calc-save">
+            <div class="calc-savebig" id="oSave">$7,100<span>/yr saved</span></div>
+            <div class="calc-save3"><span id="oSave3">$21,300</span> over 3 years</div>
+          </div>
+          <p class="calc-note">Net of ~4% direct-booking cost (card fees + a book-direct perk). Commission rates are typical defaults — edit to match your contract.</p>
+          <a class="calc-cta" href="#join">Find the rest of your leaks →</a>
+        </div>
       </div>
     </div>
   </section>
@@ -241,6 +318,36 @@
         });
       }, { threshold: 0.14, rootMargin: "0px 0px -8% 0px" });
       document.querySelectorAll(".reveal").forEach(function(el){ io.observe(el); });
+    })();
+  </script>
+  <script>
+    (function(){
+      const $ = id => document.getElementById(id);
+      const money = n => '$' + Math.round(n).toLocaleString('en-US');
+      const DIRECT_COST = 0.04; // card fees + book-direct perk
+      function recalc(){
+        const beds=+$('cBeds').value||0, min=+$('cMin').value||0, max=+$('cMax').value||0;
+        const occ=(+$('cOcc').value||0)/100, ota=(+$('cOta').value||0)/100;
+        const comm=(+$('cComm').value||0)/100, shift=(+$('cShift').value||0)/100;
+        const avg=(min+max)/2, nights=beds*365*occ, rev=nights*avg;
+        const otaRev=rev*ota, cost=otaRev*comm, pct=rev?cost/rev*100:0;
+        const saved=otaRev*shift*Math.max(comm-DIRECT_COST,0);
+        $('occVal').textContent=Math.round(occ*100)+'%';
+        $('otaVal').textContent=Math.round(ota*100)+'%';
+        $('shiftVal').textContent=Math.round(shift*100)+'%';
+        $('oCost').innerHTML=money(cost)+'<span>/yr</span>';
+        $('oRate').textContent=money(avg);
+        $('oNights').textContent=Math.round(nights).toLocaleString('en-US');
+        $('oPct').textContent=pct.toFixed(1)+'%';
+        $('oSave').innerHTML=money(saved)+'<span>/yr saved</span>';
+        $('oSave3').textContent=money(saved*3);
+      }
+      ['cBeds','cMin','cMax','cOcc','cOta','cComm','cShift'].forEach(id=>{
+        const el=$(id); if(el) el.addEventListener('input', recalc);
+      });
+      const sel=$('cSel');
+      if(sel) sel.addEventListener('change', ()=>{ $('cComm').value=sel.value; recalc(); });
+      recalc();
     })();
   </script>
 </body>
