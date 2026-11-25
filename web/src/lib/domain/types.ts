@@ -13,6 +13,8 @@ export type ExpenseCategory =
   | "software"
   | "channel_commission"
   | "supplies"
+  | "rent"
+  | "breakfast"
   | "other";
 
 export const categoryLabel: Record<ExpenseCategory, string> = {
@@ -22,6 +24,8 @@ export const categoryLabel: Record<ExpenseCategory, string> = {
   software: "Software",
   channel_commission: "Channel commission",
   supplies: "Supplies",
+  rent: "Rent",
+  breakfast: "Breakfast",
   other: "Other",
 };
 
@@ -32,6 +36,8 @@ export type Booking = {
   revenueCents: number;
   nights: number;
   checkIn: Date;
+  /** Stable guest identity (lowercased email, else name). Used for retention. */
+  guestKey?: string;
 };
 
 /** An operating expense. amountCents is positive. */
@@ -72,10 +78,14 @@ export type AuditInput = {
   expenses: Expense[];
   previousExpenses: Expense[];
   syncedAt: Date;
+  /** Overrides total-expenses / nights when the five-line cost per bed is known. */
+  costPerBedNightCents?: number;
 };
 
-export type FindingKind = "leak" | "growth";
-export type FindingArea = "money" | "costs" | "growth";
+/** leak = money lost, growth = money to gain, setup = data needed to unlock the rest. */
+export type FindingKind = "leak" | "growth" | "setup";
+export type FindingArea = "money" | "costs" | "growth" | "setup";
+export type PageKey = "home" | "costs" | "profit" | "reports" | "setup";
 export type Severity = "low" | "medium" | "high";
 
 export type Finding = {
@@ -87,6 +97,10 @@ export type Finding = {
   detail: string;
   monthlyImpactCents: number;
   severity: Severity;
+  /** Concrete steps to fix it. Every finding says what to do, not just what is wrong. */
+  steps: string[];
+  /** Page this fix belongs on. */
+  page: PageKey;
 };
 
 export type AuditResult = {
