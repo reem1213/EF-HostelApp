@@ -249,6 +249,44 @@ create table if not exists public.automation_runs (
 );
 create index if not exists automation_runs_by_property on public.automation_runs(property_id, created_at desc);
 
+-- The competitor set a hostel compares itself against (at most 8, names unique ignoring case).
+create table if not exists public.competitors (
+  id          uuid primary key default gen_random_uuid(),
+  property_id uuid not null references public.properties(id) on delete cascade,
+  name        text not null check (char_length(name) between 1 and 80),
+  created_at  timestamptz not null default now()
+);
+create unique index if not exists competitors_unique_name on public.competitors(property_id, lower(name));
+
+create or replace function public.enforce_competitor_limit()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+begin
+  if (select count(*) from public.competitors where property_id = new.property_id) >= 8 then
+    raise exception 'competitor limit reached' using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+drop trigger if exists competitors_limit on public.competitors;
+create trigger competitors_limit before insert on public.competitors
+  for each row execute function public.enforce_competitor_limit();
+
+-- Nightly rates. Append-only: the newest snapshot for a night/channel is the current rate.
+create table if not exists public.rate_snapshots (
+  id                     uuid primary key default gen_random_uuid(),
+  property_id            uuid not null references public.properties(id) on delete cascade,
+  stay_date              date not null,
+  channel                text not null check (char_length(channel) between 1 and 40),
+  competitor_id          uuid references public.competitors(id) on delete cascade,
+  room_type              text not null default 'Dorm bed' check (char_length(room_type) between 1 and 60),
+  price_cents            int  not null check (price_cents > 0 and price_cents < 10000000),
+  discounted_price_cents int  check (discounted_price_cents > 0),
+  discount_label         text,
+  source                 text not null check (source in ('pms','manual','provider','simulated')),
+  captured_at            timestamptz not null default now()
+);
+create index if not exists rate_snapshots_lookup on public.rate_snapshots(property_id, stay_date, channel);
+
 create table if not exists public.review_snapshots (
   property_id  uuid not null references public.properties(id) on delete cascade,
   month        text not null check (month ~ '^\d{4}-(0[1-9]|1[0-2])$'),
@@ -271,6 +309,8 @@ alter table public.connections      enable row level security;
 alter table public.finding_actions  enable row level security;
 alter table public.review_snapshots enable row level security;
 alter table public.automation_runs  enable row level security;
+alter table public.competitors      enable row level security;
+alter table public.rate_snapshots   enable row level security;
 
 drop policy if exists "owners manage their properties" on public.properties; -- name used by the earliest version
 drop policy if exists "owners manage their property" on public.properties;
@@ -302,7 +342,7 @@ create policy "owners manage invites" on public.property_invites
 do $$
 declare t text;
 begin
-  foreach t in array array['cost_inputs','imports','bookings','expenses','shifts','connections','finding_actions','review_snapshots']
+  foreach t in array array['cost_inputs','imports','bookings','expenses','shifts','connections','finding_actions','review_snapshots','competitors','rate_snapshots']
   loop
     execute format('drop policy if exists "owners manage %1$s" on public.%1$I', t);
     execute format(
@@ -347,3 +387,4 @@ grant select, insert, update on public.automation_runs to authenticated;
 
 grant select, delete on public.property_members to authenticated;
 grant select, insert, delete on public.property_invites to authenticated;
+grant select, insert, delete on public.competitors, public.rate_snapshots to authenticated;

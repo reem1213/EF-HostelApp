@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { isAuthPage, isPublicPath } from "./lib/public-paths";
+
 /**
  * Refreshes the Supabase session cookie and redirects signed-out visitors to
  * /login. This is a convenience layer: every page, action and API route also
@@ -31,14 +33,12 @@ export async function proxy(request: NextRequest) {
   }
 
   const path = request.nextUrl.pathname;
-  const isAuthPage = path === "/login" || path === "/signup";
-  const isPublic = isAuthPage || path.startsWith("/auth/");
 
-  if (!user && !isPublic) {
+  if (!user && !isPublicPath(path)) {
     if (path.startsWith("/api/")) return NextResponse.json({ error: "Please sign in." }, { status: 401 });
     return NextResponse.redirect(new URL("/login", request.url));
   }
-  if (user && isAuthPage) return NextResponse.redirect(new URL("/", request.url));
+  if (user && isAuthPage(path)) return NextResponse.redirect(new URL("/", request.url));
   return response;
 }
 

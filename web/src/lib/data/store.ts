@@ -5,6 +5,7 @@ import type { ConnectionStatus, ProviderId } from "../integrations/providers";
 import type { Plan } from "../domain/team";
 import type { Guardrails } from "../domain/guardrails";
 import type { ActionRun, NewRun, RunPatch } from "../automation/types";
+import type { Competitor, RateSnapshot } from "../domain/rates";
 import type { OtaSettings } from "../domain/ota";
 import type { Socials } from "../domain/profile";
 
@@ -131,6 +132,18 @@ export interface Store {
   listRuns(propertyId: string, limit?: number): Promise<ActionRun[]>;
   getGuardrails(propertyId: string): Promise<Guardrails>;
   saveGuardrails(propertyId: string, g: Guardrails): Promise<void>;
+
+  // nightly rates and the competitor set
+  saveRates(propertyId: string, snaps: RateSnapshot[]): Promise<void>;
+  /** Rates for nights in [start, end). */
+  listRates(propertyId: string, range: DateRange): Promise<RateSnapshot[]>;
+  /** Removes the rates the owner set by hand for one night/channel/room, revealing the underlying source. */
+  deleteManualRate(propertyId: string, key: { stayDate: Date; channel: string; roomType: string }): Promise<void>;
+  listCompetitors(propertyId: string): Promise<Competitor[]>;
+  /** Up to 8 per property, names unique ignoring case. Throws a readable error otherwise. */
+  addCompetitor(propertyId: string, name: string): Promise<Competitor>;
+  /** Also removes that competitor's rates. */
+  removeCompetitor(propertyId: string, id: string): Promise<void>;
 
   // progress on fixes
   addressedIds(propertyId: string): Promise<Set<string>>;

@@ -7,6 +7,7 @@ import type { ProviderId } from "../integrations/providers";
 import { maxSeats, type Plan } from "../domain/team";
 import { defaultGuardrails, type Guardrails } from "../domain/guardrails";
 import type { ActionRun, NewRun, RunPatch } from "../automation/types";
+import type { Competitor, RateSnapshot } from "../domain/rates";
 import type {
   ConnectionRecord,
   ImportRecord,
@@ -36,6 +37,8 @@ export class MemoryStore implements Store {
   private addressed = new Map<string, Set<string>>();
   private reviews = new Map<string, ReviewSnapshot[]>();
   private runs = new Map<string, ActionRun[]>(); // newest first
+  private rates = new Map<string, RateSnapshot[]>();
+  private competitors = new Map<string, Competitor[]>();
   private guardrails = new Map<string, Guardrails>();
 
   async getProperty(userId: string) {
@@ -264,6 +267,41 @@ export class MemoryStore implements Store {
 
   async saveGuardrails(propertyId: string, g: Guardrails) {
     this.guardrails.set(propertyId, g);
+  }
+
+  async saveRates(propertyId: string, snaps: RateSnapshot[]) {
+    this.rates.set(propertyId, [...(this.rates.get(propertyId) ?? []), ...snaps.map((s) => ({ ...s }))]);
+  }
+
+  async listRates(propertyId: string, range: DateRange) {
+    return (this.rates.get(propertyId) ?? []).filter((r) => r.stayDate >= range.start && r.stayDate < range.end).map((r) => ({ ...r }));
+  }
+
+  async deleteManualRate(propertyId: string, key: { stayDate: Date; channel: string; roomType: string }) {
+    this.rates.set(
+      propertyId,
+      (this.rates.get(propertyId) ?? []).filter((r) => !(r.source === "manual" && r.competitorId === null && r.channel === key.channel && r.roomType === key.roomType && r.stayDate.getTime() === key.stayDate.getTime())),
+    );
+  }
+
+  async listCompetitors(propertyId: string) {
+    return [...(this.competitors.get(propertyId) ?? [])];
+  }
+
+  async addCompetitor(propertyId: string, name: string) {
+    const clean = name.trim();
+    if (!clean || clean.length > 80) throw new Error("Enter a name up to 80 characters.");
+    const list = this.competitors.get(propertyId) ?? [];
+    if (list.some((c) => c.name.toLowerCase() === clean.toLowerCase())) throw new Error("That competitor is already in your list.");
+    if (list.length >= 8) throw new Error("You can compare against up to 8 competitors.");
+    const c: Competitor = { id: randomUUID(), name: clean };
+    this.competitors.set(propertyId, [...list, c]);
+    return c;
+  }
+
+  async removeCompetitor(propertyId: string, id: string) {
+    this.competitors.set(propertyId, (this.competitors.get(propertyId) ?? []).filter((c) => c.id !== id));
+    this.rates.set(propertyId, (this.rates.get(propertyId) ?? []).filter((r) => r.competitorId !== id));
   }
 
   async addressedIds(propertyId: string) {

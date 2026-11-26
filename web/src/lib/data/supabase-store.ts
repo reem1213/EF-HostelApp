@@ -8,6 +8,7 @@ import type { ConnectionRecord, ImportRecord, Member, NewProperty, Property, Pro
 import type { Plan } from "../domain/team";
 import { defaultGuardrails, type Guardrails } from "../domain/guardrails";
 import type { ActionRun, NewRun, RunPatch } from "../automation/types";
+import type { Competitor, RateSnapshot } from "../domain/rates";
 
 /** Supabase implementation of the Store. Row-level security scopes every query to the signed-in user. */
 
@@ -410,6 +411,82 @@ export class SupabaseStore implements Store {
 
   async saveGuardrails(propertyId: string, g: Guardrails) {
     must(await this.db.from("properties").update({ guardrails: g }).eq("id", propertyId), "Could not save limits");
+  }
+
+  async saveRates(propertyId: string, snaps: RateSnapshot[]) {
+    for (const part of chunks(snaps)) {
+      must(
+        await this.db.from("rate_snapshots").insert(
+          part.map((r) => ({
+            property_id: propertyId,
+            stay_date: ymd(r.stayDate),
+            channel: r.channel,
+            competitor_id: r.competitorId,
+            room_type: r.roomType,
+            price_cents: r.priceCents,
+            discounted_price_cents: r.discountedPriceCents,
+            discount_label: r.discountLabel,
+            source: r.source,
+            captured_at: r.capturedAt.toISOString(),
+          })),
+        ),
+        "Could not save rates",
+      );
+    }
+  }
+
+  async listRates(propertyId: string, range: DateRange) {
+    const out: RateSnapshot[] = [];
+    for (let from = 0; ; from += 1000) {
+      const rows = must(
+        await this.db.from("rate_snapshots").select("*").eq("property_id", propertyId).gte("stay_date", ymd(range.start)).lt("stay_date", ymd(range.end)).order("captured_at").range(from, from + 999),
+        "Could not load rates",
+      ) as Row[];
+      for (const r of rows) {
+        out.push({
+          stayDate: day(String(r.stay_date)),
+          channel: String(r.channel),
+          competitorId: (r.competitor_id as string | null) ?? null,
+          roomType: String(r.room_type),
+          priceCents: Number(r.price_cents),
+          discountedPriceCents: r.discounted_price_cents === null ? null : Number(r.discounted_price_cents),
+          discountLabel: (r.discount_label as string | null) ?? null,
+          source: r.source as RateSnapshot["source"],
+          capturedAt: new Date(String(r.captured_at)),
+        });
+      }
+      if (rows.length < 1000) break;
+    }
+    return out;
+  }
+
+  async deleteManualRate(propertyId: string, key: { stayDate: Date; channel: string; roomType: string }) {
+    must(
+      await this.db.from("rate_snapshots").delete().eq("property_id", propertyId).eq("stay_date", ymd(key.stayDate)).eq("channel", key.channel).eq("room_type", key.roomType).eq("source", "manual").is("competitor_id", null),
+      "Could not clear the rate",
+    );
+  }
+
+  async listCompetitors(propertyId: string) {
+    const rows = must(await this.db.from("competitors").select("id,name").eq("property_id", propertyId).order("created_at"), "Could not load competitors") as Row[];
+    return rows.map<Competitor>((r) => ({ id: String(r.id), name: String(r.name) }));
+  }
+
+  async addCompetitor(propertyId: string, name: string) {
+    const clean = name.trim();
+    if (!clean || clean.length > 80) throw new Error("Enter a name up to 80 characters.");
+    const res = await this.db.from("competitors").insert({ property_id: propertyId, name: clean }).select("id,name").single();
+    if (res.error) {
+      if (res.error.code === "23505") throw new Error("That competitor is already in your list.");
+      if (/limit/i.test(res.error.message)) throw new Error("You can compare against up to 8 competitors.");
+      throw new Error(`Could not add competitor: ${res.error.message}`);
+    }
+    const r = res.data as Row;
+    return { id: String(r.id), name: String(r.name) } satisfies Competitor;
+  }
+
+  async removeCompetitor(propertyId: string, id: string) {
+    must(await this.db.from("competitors").delete().eq("property_id", propertyId).eq("id", id), "Could not remove competitor");
   }
 
   async addressedIds(propertyId: string) {
