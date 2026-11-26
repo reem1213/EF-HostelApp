@@ -67,7 +67,7 @@ export function runAudit(input: AuditInput, addressed: Set<string> = new Set()):
     revenue,
     opCost,
     nights,
-    costPerNight: nights > 0 ? Math.floor(opCost / nights) : 0,
+    costPerNight: input.costPerBedNightCents ?? (nights > 0 ? Math.floor(opCost / nights) : 0),
     laundryPerNight: nights > 0 ? Math.floor(laundry / nights) : 0,
     directShare: revenue > 0 ? directRevenue / revenue : 0,
     otaShare: revenue > 0 ? otaRevenue / revenue : 0,
@@ -153,6 +153,13 @@ function laundryOverPeer(laundry: number, nights: number, bench: Benchmark): Fin
       detail: `${dollarsExact(Math.floor(laundry / nights))} per occupied night vs peer ${dollarsExact(bench.peerLaundryPerBedNightCents)}`,
       monthlyImpactCents: impact,
       severity: severityFor(impact),
+      page: "costs",
+      steps: [
+        "Pull your last 3 laundry invoices and confirm the per-kilo or per-bed rate.",
+        `Get 2 competing quotes. Your target is ${dollarsExact(bench.peerLaundryPerBedNightCents)} per occupied night or less.`,
+        "Send your current supplier the cheaper quote and ask them to match it, or switch.",
+        "Check for surge charges and delivery fees. Ask for them to be waived.",
+      ],
     },
   ];
 }
@@ -173,6 +180,13 @@ function otaCommission(commission: number, otaRevenue: number, bench: Benchmark)
       detail: `${rate}% effective commission vs ${target}% target`,
       monthlyImpactCents: impact,
       severity: severityFor(impact),
+      page: "profit",
+      steps: [
+        `Open each booking site's extranet and check the commission rate you are actually on (target ${target}%).`,
+        "Ask your account manager for a lower rate or a visibility-booster waiver. Quote your volume.",
+        "Turn off promotions that stack extra commission on guests who would have booked anyway.",
+        "Shift repeat guests to direct booking with a small perk (see the direct-booking plan).",
+      ],
     },
   ];
 }
@@ -197,6 +211,12 @@ function duplicateSoftware(expenses: Expense[]): Finding[] {
       detail: `${charges.length} charges this period for the same service`,
       monthlyImpactCents: extra,
       severity: severityFor(extra),
+      page: "reports",
+      steps: [
+        `Find the duplicate ${sorted[0].merchant} charges on your card or bank statement.`,
+        "Check whether you have two accounts or two plans, and cancel the one you do not use.",
+        "Ask the vendor for a refund of the extra charge. Most will credit the last billing period.",
+      ],
     });
   }
   return out;
@@ -222,6 +242,13 @@ function categorySpikes(current: Expense[], previous: Expense[]): Finding[] {
       detail: `${dollars(increase)} more than the previous period`,
       monthlyImpactCents: increase,
       severity: severityFor(increase),
+      page: "costs",
+      steps: [
+        `List every ${categoryLabel[cat].toLowerCase()} charge from this period next to last period.`,
+        "Mark each one as expected, one-off, or a price rise.",
+        "For price rises, ask the supplier for the old rate or get a competing quote.",
+        "If it is a new recurring cost, decide whether it earns its keep or cancel it.",
+      ],
     });
   }
   return out;
@@ -250,6 +277,13 @@ function directShareGrowth(
       detail: `${Math.round(directShare * 100)}% direct today, target ${Math.round(bench.targetDirectShare * 100)}%`,
       monthlyImpactCents: impact,
       severity: severityFor(impact),
+      page: "profit",
+      steps: [
+        "Add a booking widget to your own website and make it the easiest place to book.",
+        "Offer a small book-direct perk: free breakfast, late checkout, or 5% off.",
+        "Claim and complete your Google Business Profile with photos and a booking link.",
+        "Email past guests a returning-guest code every quarter.",
+      ],
     },
   ];
 }

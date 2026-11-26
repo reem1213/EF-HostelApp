@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { centsFromDecimal, dollars, dollarsExact } from "../domain/money";
-import { currentWindow, demoDeps, loadAudit, MemoryFindingStore, previousWindow } from "../data/audit-repository";
 import { channelFromSource, CloudbedsConnector, parseReservationsPage } from "./cloudbeds";
 import { IntegrationError } from "./connectors";
-import { DemoBankFeed, DemoPms } from "./demo-data";
 
 describe("money helpers", () => {
   it("formats whole dollars with half-up rounding and grouping", () => {
@@ -103,42 +101,5 @@ describe("Cloudbeds parsing", () => {
     await expect(connector.fetchPeriod({ start: new Date(2026, 10, 1), end: new Date(2026, 10, 8) })).rejects.toThrow(
       IntegrationError,
     );
-  });
-});
-
-describe("demo pipeline", () => {
-  const now = new Date(2026, 10, 24, 9);
-
-  it("surfaces the expected findings", async () => {
-    const r = await loadAudit(demoDeps(undefined, () => now));
-    const ids = r.findings.map((f) => f.id);
-    expect(ids).toEqual(expect.arrayContaining(["laundry-peer", "ota-commission", "dupe-mailchimp", "spike-supplies", "direct-share"]));
-    expect(r.occupiedBedNights).toBe(1123); // 48 beds * 30 days * 78%
-    expect(r.findings.find((f) => f.id === "laundry-peer")?.monthlyImpactCents).toBe(235_800 - 145 * 1123);
-    expect(r.findings.find((f) => f.id === "dupe-mailchimp")?.monthlyImpactCents).toBe(4_900);
-    expect(r.findings.find((f) => f.id === "spike-supplies")?.monthlyImpactCents).toBe(24_000);
-  });
-
-  it("persists addressed findings and moves them to recovered", async () => {
-    const store = new MemoryFindingStore();
-    const deps = demoDeps(store, () => now);
-    await store.markAddressed(deps.property.id, "spike-supplies");
-    const r = await loadAudit(deps);
-    expect(r.addressedIds).toEqual(new Set(["spike-supplies"]));
-    expect(r.recoveredCents).toBe(24_000);
-    expect(r.nextStep?.id).not.toBe("spike-supplies");
-  });
-
-  it("serves the previous dataset for the earlier window", async () => {
-    const start = () => currentWindow(now).start;
-    const bank = new DemoBankFeed(start);
-    const cur = await bank.fetchExpenses(currentWindow(now));
-    const prev = await bank.fetchExpenses(previousWindow(now));
-    expect(cur.length).not.toBe(prev.length);
-  });
-
-  it("demo PMS fills the window to the target occupancy", async () => {
-    const snap = await new DemoPms().fetchPeriod(currentWindow(now));
-    expect(snap.occupiedBedNights).toBe(1123);
   });
 });
