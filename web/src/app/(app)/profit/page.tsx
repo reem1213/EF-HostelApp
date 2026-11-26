@@ -104,6 +104,9 @@ async function ProfitView() {
         <Link href="/profit/direct" className="rounded-2xl border border-hairline bg-surface px-4 py-3.5 text-[15px] font-semibold text-teal">
           Open the direct-booking hub
         </Link>
+        <Link href="/profit/emails" className="rounded-2xl border border-hairline bg-surface px-4 py-3.5 text-[15px] font-semibold text-teal">
+          Win back past guests by email
+        </Link>
         <div className="flex flex-col gap-2">
           {DIRECT_BOOKING_PLAN.map((block, i) => (
             <details key={block.title} className="group rounded-2xl border border-hairline bg-surface" open={i === 0}>

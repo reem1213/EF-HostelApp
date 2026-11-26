@@ -301,6 +301,37 @@ create table if not exists public.ota_tickets (
   unique (property_id, ota_id)
 );
 
+-- Repeat-guest email. Suppressions are added by the signed unsubscribe link (service key) and read by members.
+create table if not exists public.email_suppressions (
+  property_id uuid not null references public.properties(id) on delete cascade,
+  email       text not null check (email = lower(email) and char_length(email) between 3 and 254),
+  created_at  timestamptz not null default now(),
+  primary key (property_id, email)
+);
+-- What was sent (or held back). Addresses are masked: the full address is never kept here.
+create table if not exists public.email_outbox (
+  id          uuid primary key default gen_random_uuid(),
+  property_id uuid not null references public.properties(id) on delete cascade,
+  masked_email text not null,
+  subject     text not null check (char_length(subject) between 1 and 300),
+  status      text not null check (status in ('sent','failed','not_sent')),
+  error       text,
+  created_at  timestamptz not null default now()
+);
+create index if not exists email_outbox_by_property on public.email_outbox(property_id, created_at desc);
+create table if not exists public.email_campaigns (
+  id          uuid primary key default gen_random_uuid(),
+  property_id uuid not null references public.properties(id) on delete cascade,
+  template    text not null check (template in ('welcome_back','seasonal','review_request')),
+  subject     text not null,
+  audience    int  not null check (audience >= 0),
+  sent        int  not null check (sent >= 0),
+  skipped     int  not null check (skipped >= 0),
+  mode        text not null check (mode in ('sent','outbox')),
+  created_by  uuid references auth.users(id),
+  created_at  timestamptz not null default now()
+);
+
 create table if not exists public.review_snapshots (
   property_id  uuid not null references public.properties(id) on delete cascade,
   month        text not null check (month ~ '^\d{4}-(0[1-9]|1[0-2])$'),
@@ -326,6 +357,9 @@ alter table public.automation_runs  enable row level security;
 alter table public.competitors      enable row level security;
 alter table public.rate_snapshots   enable row level security;
 alter table public.ota_tickets      enable row level security;
+alter table public.email_suppressions enable row level security;
+alter table public.email_outbox       enable row level security;
+alter table public.email_campaigns    enable row level security;
 
 drop policy if exists "owners manage their properties" on public.properties; -- name used by the earliest version
 drop policy if exists "owners manage their property" on public.properties;
@@ -357,7 +391,7 @@ create policy "owners manage invites" on public.property_invites
 do $$
 declare t text;
 begin
-  foreach t in array array['cost_inputs','imports','bookings','expenses','shifts','connections','finding_actions','review_snapshots','competitors','rate_snapshots','ota_tickets']
+  foreach t in array array['cost_inputs','imports','bookings','expenses','shifts','connections','finding_actions','review_snapshots','competitors','rate_snapshots','ota_tickets','email_suppressions','email_outbox','email_campaigns']
   loop
     execute format('drop policy if exists "owners manage %1$s" on public.%1$I', t);
     execute format(
@@ -404,3 +438,4 @@ grant select, delete on public.property_members to authenticated;
 grant select, insert, delete on public.property_invites to authenticated;
 grant select, insert, delete on public.competitors, public.rate_snapshots to authenticated;
 grant select, insert, update on public.ota_tickets to authenticated;
+grant select, insert on public.email_suppressions, public.email_outbox, public.email_campaigns to authenticated;

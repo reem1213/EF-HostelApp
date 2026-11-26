@@ -4,8 +4,9 @@ import type { CostInputs } from "../domain/costs";
 import type { BookingRow, ExpenseRow, ImportKind, RowError, ShiftRow } from "../domain/import/parsers";
 import type { Booking, DateRange, ExpenseCategory } from "../domain/types";
 import type { ConnectionStatus, ProviderId } from "../integrations/providers";
-import type { ConnectionRecord, ImportRecord, Member, NewProperty, Property, PropertyPatch, ReviewSnapshot, Store, StoredExpense, StoredShift, Ticket } from "./store";
+import type { ConnectionRecord, ImportRecord, Member, NewProperty, Property, PropertyPatch, ReviewSnapshot, Store, StoredExpense, StoredShift, Ticket, OutboxEntry, Campaign } from "./store";
 import type { TicketStatus } from "../domain/tickets";
+import type { OutboxRow } from "../email/send";
 import type { Plan } from "../domain/team";
 import { defaultGuardrails, type Guardrails } from "../domain/guardrails";
 import type { ActionRun, NewRun, RunPatch } from "../automation/types";
@@ -429,6 +430,34 @@ export class SupabaseStore implements Store {
       ),
       "Could not save request",
     );
+  }
+
+  async listSuppressions(propertyId: string) {
+    const rows = must(await this.db.from("email_suppressions").select("email").eq("property_id", propertyId), "Could not load the unsubscribe list") as Row[];
+    return rows.map((r) => String(r.email));
+  }
+
+  async addSuppression(propertyId: string, email: string) {
+    must(await this.db.from("email_suppressions").upsert({ property_id: propertyId, email: email.trim().toLowerCase() }, { onConflict: "property_id,email", ignoreDuplicates: true }), "Could not save the unsubscribe");
+  }
+
+  async addOutbox(propertyId: string, rows: OutboxRow[]) {
+    if (rows.length === 0) return;
+    must(await this.db.from("email_outbox").insert(rows.map((r) => ({ property_id: propertyId, masked_email: r.maskedEmail, subject: r.subject, status: r.status, error: r.error ?? null }))), "Could not record emails");
+  }
+
+  async listOutbox(propertyId: string, limit = 50) {
+    const rows = must(await this.db.from("email_outbox").select("masked_email,subject,status,error,created_at").eq("property_id", propertyId).order("created_at", { ascending: false }).limit(limit), "Could not load emails") as Row[];
+    return rows.map<OutboxEntry>((r) => ({ maskedEmail: String(r.masked_email), subject: String(r.subject), status: r.status as OutboxEntry["status"], error: r.error ? String(r.error) : undefined, createdAt: new Date(String(r.created_at)) }));
+  }
+
+  async recordCampaign(propertyId: string, c: Omit<Campaign, "createdAt">) {
+    must(await this.db.from("email_campaigns").insert({ property_id: propertyId, template: c.template, subject: c.subject, audience: c.audience, sent: c.sent, skipped: c.skipped, mode: c.mode, created_by: c.createdBy }), "Could not record the campaign");
+  }
+
+  async listCampaigns(propertyId: string, limit = 20) {
+    const rows = must(await this.db.from("email_campaigns").select("*").eq("property_id", propertyId).order("created_at", { ascending: false }).limit(limit), "Could not load campaigns") as Row[];
+    return rows.map<Campaign>((r) => ({ template: String(r.template), subject: String(r.subject), audience: Number(r.audience), sent: Number(r.sent), skipped: Number(r.skipped), mode: r.mode as Campaign["mode"], createdBy: String(r.created_by), createdAt: new Date(String(r.created_at)) }));
   }
 
   async getGuardrails(propertyId: string) {

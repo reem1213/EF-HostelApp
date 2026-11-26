@@ -7,6 +7,7 @@ import type { Guardrails } from "../domain/guardrails";
 import type { ActionRun, NewRun, RunPatch } from "../automation/types";
 import type { Competitor, RateSnapshot } from "../domain/rates";
 import type { TicketStatus } from "../domain/tickets";
+import type { OutboxRow } from "../email/send";
 import type { OtaSettings } from "../domain/ota";
 import type { Socials } from "../domain/profile";
 
@@ -34,6 +35,9 @@ export type NewProperty = Pick<Property, "name" | "beds" | "currency" | "country
 export type PropertyPatch = Partial<Pick<Property, "name" | "beds" | "country" | "otas" | "website" | "socials" | "postalAddress" | "replyToEmail" | "otaSettings">>;
 
 export type Ticket = { otaId: string; status: TicketStatus; subject: string; body: string; createdAt: Date; submittedAt: Date | null; answeredAt: Date | null };
+
+export type OutboxEntry = OutboxRow & { createdAt: Date };
+export type Campaign = { template: string; subject: string; audience: number; sent: number; skipped: number; mode: "sent" | "outbox"; createdBy: string; createdAt: Date };
 
 export type Member = { userId: string; email: string; role: "owner" | "manager" };
 
@@ -152,6 +156,16 @@ export interface Store {
   listTickets(propertyId: string): Promise<Ticket[]>;
   /** Creates or updates the ticket for a booking site. Submitted/answered dates are stamped the first time the status is reached. */
   upsertTicket(propertyId: string, t: { otaId: string; status: TicketStatus; subject: string; body: string }): Promise<void>;
+
+  // repeat-guest email: who must not be written to, what was sent (masked), and past campaigns
+  listSuppressions(propertyId: string): Promise<string[]>;
+  /** Idempotent. Addresses are stored lowercase. */
+  addSuppression(propertyId: string, email: string): Promise<void>;
+  addOutbox(propertyId: string, rows: OutboxRow[]): Promise<void>;
+  /** Newest first. Addresses are masked; full addresses are never shown in the UI. */
+  listOutbox(propertyId: string, limit?: number): Promise<OutboxEntry[]>;
+  recordCampaign(propertyId: string, c: Omit<Campaign, "createdAt">): Promise<void>;
+  listCampaigns(propertyId: string, limit?: number): Promise<Campaign[]>;
 
   // progress on fixes
   addressedIds(propertyId: string): Promise<Set<string>>;

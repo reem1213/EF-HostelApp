@@ -9,6 +9,7 @@ import { defaultGuardrails, type Guardrails } from "../domain/guardrails";
 import type { ActionRun, NewRun, RunPatch } from "../automation/types";
 import type { Competitor, RateSnapshot } from "../domain/rates";
 import type { TicketStatus } from "../domain/tickets";
+import type { OutboxRow } from "../email/send";
 import type {
   ConnectionRecord,
   ImportRecord,
@@ -21,6 +22,8 @@ import type {
   StoredExpense,
   StoredShift,
   Ticket,
+  OutboxEntry,
+  Campaign,
 } from "./store";
 
 type Conn = ConnectionRecord & { credentialsEnc: string };
@@ -43,6 +46,9 @@ export class MemoryStore implements Store {
   private competitors = new Map<string, Competitor[]>();
   private guardrails = new Map<string, Guardrails>();
   private tickets = new Map<string, Ticket[]>();
+  private suppressions = new Map<string, Set<string>>();
+  private outbox = new Map<string, OutboxEntry[]>(); // newest first
+  private campaigns = new Map<string, Campaign[]>(); // newest first
 
   async getProperty(userId: string) {
     for (const [pid, list] of this.members) {
@@ -282,6 +288,33 @@ export class MemoryStore implements Store {
     if (i >= 0) list[i] = next;
     else list.push(next);
     this.tickets.set(propertyId, list);
+  }
+
+  async listSuppressions(propertyId: string) {
+    return [...(this.suppressions.get(propertyId) ?? [])];
+  }
+
+  async addSuppression(propertyId: string, email: string) {
+    const set = this.suppressions.get(propertyId) ?? new Set<string>();
+    set.add(email.trim().toLowerCase());
+    this.suppressions.set(propertyId, set);
+  }
+
+  async addOutbox(propertyId: string, rows: OutboxRow[]) {
+    const now = new Date();
+    this.outbox.set(propertyId, [...rows.map((r) => ({ ...r, createdAt: now })).reverse(), ...(this.outbox.get(propertyId) ?? [])]);
+  }
+
+  async listOutbox(propertyId: string, limit = 50) {
+    return (this.outbox.get(propertyId) ?? []).slice(0, limit).map((r) => ({ ...r }));
+  }
+
+  async recordCampaign(propertyId: string, c: Omit<Campaign, "createdAt">) {
+    this.campaigns.set(propertyId, [{ ...c, createdAt: new Date() }, ...(this.campaigns.get(propertyId) ?? [])]);
+  }
+
+  async listCampaigns(propertyId: string, limit = 20) {
+    return (this.campaigns.get(propertyId) ?? []).slice(0, limit).map((c) => ({ ...c }));
   }
 
   async getGuardrails(propertyId: string) {

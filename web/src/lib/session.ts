@@ -24,6 +24,11 @@ async function demoStore(): Promise<MemoryStore> {
   return g.__hpStore;
 }
 
+/** The demo store when running without Supabase (public routes such as unsubscribe have no session), else null. */
+export async function getDemoStoreIfDemo(): Promise<MemoryStore | null> {
+  return supabaseConfigured() ? null : demoStore();
+}
+
 /** The signed-in session, or null. In demo mode (no Supabase configured) there is always a demo user. */
 export async function getSession(): Promise<Session | null> {
   if (!supabaseConfigured()) return { user: DEMO_USER, store: await demoStore(), demo: true };

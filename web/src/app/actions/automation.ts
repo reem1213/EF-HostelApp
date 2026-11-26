@@ -6,6 +6,7 @@ import { z } from "zod";
 import { buildRunnerDeps } from "@/lib/automation/registry";
 import { checkRunParams } from "@/lib/automation/price-guard";
 import { approveRun, AutomationError, proposeRun, rejectRun, undoRun } from "@/lib/automation/runner";
+import { emailSettingsFor } from "@/lib/email/config";
 import { loadDashboard } from "@/lib/dashboard";
 import { REASON_COPY } from "@/lib/domain/guardrails";
 import { dollarsToCents, fieldErrors } from "@/lib/forms";
@@ -19,7 +20,7 @@ const runIdSchema = z.uuid();
 
 async function context() {
   const ctx = await requireProperty();
-  return { ...ctx, deps: buildRunnerDeps(ctx.store) };
+  return { ...ctx, deps: buildRunnerDeps(ctx.store, { email: emailSettingsFor(ctx.property) ?? undefined }) };
 }
 
 /** Turns a fix that software can do into a proposed action, after checking it against the limits. */
