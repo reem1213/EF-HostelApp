@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { cn } from "@/lib/utils";
 
-export type StripCell = { date: string; occupancy: number; future: boolean; isToday: boolean };
+export type StripCell = { date: string; occupancy: number; future: boolean; isToday: boolean; /** Replaces the default caption, for strips that show something other than occupancy (such as price). */ note?: string };
 
 // Occupancy to colour. On the dark band a fuller night is a brighter "lit window"; on light surfaces it is a deeper teal.
 const DARK = ["rgba(255,255,255,0.10)", "#34585a", "#62908b", "#d9bb6c", "#f4b940"];
@@ -22,7 +22,7 @@ export function NightStrip({ cells, tone = "light", label }: { cells: StripCell[
   const palette = tone === "dark" ? DARK : LIGHT;
   const active = sel !== null && sel >= 0 ? cells[sel] : null;
 
-  const detail = (c: StripCell) => (c.future && c.occupancy === 0 ? `${fmt(c.date)}: no bookings yet` : `${fmt(c.date)}: ${Math.round(c.occupancy * 100)}% full`);
+  const detail = (c: StripCell) => c.note ?? (c.future && c.occupancy === 0 ? `${fmt(c.date)}: no bookings yet` : `${fmt(c.date)}: ${Math.round(c.occupancy * 100)}% full`);
 
   return (
     <div>

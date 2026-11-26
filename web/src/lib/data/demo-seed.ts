@@ -11,7 +11,7 @@ const utcDay = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(
  * with no setup. Dates are relative to `now`, so the demo never goes stale.
  */
 export async function seedDemo(store: MemoryStore, userId: string, now = new Date()): Promise<Property> {
-  const property = await store.createProperty(userId, { name: "Roam Quarter Hostel", beds: 48, currency: "USD", country: "US" }, "demo@hostelpulse.app");
+  const property = await store.createProperty(userId, { name: "Roam Quarter Hostel", beds: 48, currency: "USD", country: "US", otas: ["booking_com", "hostelworld"] }, "demo@hostelpulse.app");
   store.setPlan(property.id, "team"); // so the team feature can be tried in the demo
   const today = utcDay(now);
 
