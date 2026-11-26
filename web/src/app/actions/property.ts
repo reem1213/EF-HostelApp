@@ -11,6 +11,7 @@ import { monthOf } from "@/lib/period";
 import { requireProperty, requireSession } from "@/lib/session";
 import { supabaseConfigured, supabaseServer } from "@/lib/supabase/server";
 import { expenseCategorySchema } from "@/lib/validation";
+import { safely } from "./safe";
 import type { ActionState } from "./types";
 
 const refresh = () => revalidatePath("/", "layout");
@@ -32,7 +33,7 @@ const propertySchema = z.object({
   country: z.string().trim().max(60).default(""),
 });
 
-export async function completeOnboarding(_prev: ActionState, fd: FormData): Promise<ActionState> {
+async function completeOnboardingImpl(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const session = await requireSession();
   if (await session.store.getProperty(session.user.id)) redirect("/");
 
@@ -51,7 +52,7 @@ export async function completeOnboarding(_prev: ActionState, fd: FormData): Prom
   redirect("/");
 }
 
-export async function saveCosts(_prev: ActionState, fd: FormData): Promise<ActionState> {
+async function saveCostsImpl(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const { store, property } = await requireProperty();
   const month = monthSchema.safeParse(fd.get("month"));
   if (!month.success) return { error: "Invalid month." };
@@ -63,7 +64,7 @@ export async function saveCosts(_prev: ActionState, fd: FormData): Promise<Actio
   return { ok: true, message: "Costs saved. Cost per bed has been updated." };
 }
 
-export async function saveReview(_prev: ActionState, fd: FormData): Promise<ActionState> {
+async function saveReviewImpl(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const { store, property } = await requireProperty();
   const parsed = z
     .object({
@@ -81,7 +82,7 @@ export async function saveReview(_prev: ActionState, fd: FormData): Promise<Acti
 }
 
 /** Marks a fix as done. Only ids the current audit actually produced are accepted. */
-export async function markFindingDone(findingId: string): Promise<ActionState> {
+async function markFindingDoneImpl(findingId: string): Promise<ActionState> {
   if (typeof findingId !== "string" || findingId.length === 0 || findingId.length > 120) return { error: "Invalid fix." };
   const { store, property } = await requireProperty();
   const d = await loadDashboard(store, property);
@@ -93,7 +94,7 @@ export async function markFindingDone(findingId: string): Promise<ActionState> {
 }
 
 /** Lets the manager correct an automatic category on an imported charge. */
-export async function recategorizeExpense(expenseId: string, category: string): Promise<ActionState> {
+async function recategorizeExpenseImpl(expenseId: string, category: string): Promise<ActionState> {
   const { store, property } = await requireProperty();
   const id = z.uuid().safeParse(expenseId);
   const cat = expenseCategorySchema.safeParse(category);
@@ -103,7 +104,7 @@ export async function recategorizeExpense(expenseId: string, category: string): 
   return { ok: true };
 }
 
-export async function changePassword(_prev: ActionState, fd: FormData): Promise<ActionState> {
+async function changePasswordImpl(_prev: ActionState, fd: FormData): Promise<ActionState> {
   await requireSession();
   if (!supabaseConfigured()) return { error: "Accounts are not switched on for this deployment." };
   const pw = z.string().min(10, "Use at least 10 characters").max(200).safeParse(fd.get("password"));
@@ -112,4 +113,28 @@ export async function changePassword(_prev: ActionState, fd: FormData): Promise<
   const { error } = await supabase.auth.updateUser({ password: pw.data });
   if (error) return { error: error.message };
   return { ok: true, message: "Password updated." };
+}
+
+export async function completeOnboarding(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  return safely("completeOnboarding", () => completeOnboardingImpl(_prev, fd));
+}
+
+export async function saveCosts(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  return safely("saveCosts", () => saveCostsImpl(_prev, fd));
+}
+
+export async function saveReview(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  return safely("saveReview", () => saveReviewImpl(_prev, fd));
+}
+
+export async function markFindingDone(findingId: string): Promise<ActionState> {
+  return safely("markFindingDone", () => markFindingDoneImpl(findingId));
+}
+
+export async function recategorizeExpense(expenseId: string, category: string): Promise<ActionState> {
+  return safely("recategorizeExpense", () => recategorizeExpenseImpl(expenseId, category));
+}
+
+export async function changePassword(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  return safely("changePassword", () => changePasswordImpl(_prev, fd));
 }

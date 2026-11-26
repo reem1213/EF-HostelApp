@@ -6,11 +6,12 @@ import { z } from "zod";
 import { MAX_IMPORT_BYTES } from "@/lib/domain/import/parsers";
 import { runImport } from "@/lib/import-service";
 import { requireProperty } from "@/lib/session";
+import { safely } from "./safe";
 import type { ActionState } from "./types";
 
 const kindSchema = z.enum(["bookings", "bank", "utilities", "schedule", "expenses"]);
 
-export async function importFile(_prev: ActionState, fd: FormData): Promise<ActionState> {
+async function importFileImpl(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const { store, property } = await requireProperty();
 
   const kind = kindSchema.safeParse(fd.get("kind"));
@@ -29,4 +30,8 @@ export async function importFile(_prev: ActionState, fd: FormData): Promise<Acti
   const details = out.errors.slice(0, 8).map((e) => (e.line > 0 ? `Line ${e.line}: ${e.message}` : e.message));
   if (out.errors.length > 8) details.push(`…and ${out.errors.length - 8} more.`);
   return out.ok ? { ok: true, message: out.message, details } : { error: out.message, details };
+}
+
+export async function importFile(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  return safely("importFile", () => importFileImpl(_prev, fd));
 }
