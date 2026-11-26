@@ -4,7 +4,8 @@ import type { CostInputs } from "../domain/costs";
 import type { BookingRow, ExpenseRow, ImportKind, RowError, ShiftRow } from "../domain/import/parsers";
 import type { Booking, DateRange, ExpenseCategory } from "../domain/types";
 import type { ConnectionStatus, ProviderId } from "../integrations/providers";
-import type { ConnectionRecord, ImportRecord, Property, ReviewSnapshot, Store, StoredExpense, StoredShift } from "./store";
+import type { ConnectionRecord, ImportRecord, Member, Property, ReviewSnapshot, Store, StoredExpense, StoredShift } from "./store";
+import type { Plan } from "../domain/team";
 
 /** Supabase implementation of the Store. Row-level security scopes every query to the signed-in user. */
 
@@ -28,20 +29,52 @@ type Row = Record<string, unknown>;
 export class SupabaseStore implements Store {
   constructor(private readonly db: SupabaseClient) {}
 
-  async getProperty(userId: string) {
-    const data = must(
-      await this.db.from("properties").select("id,name,beds,currency,country").eq("owner_id", userId).maybeSingle(),
-      "Could not load property",
-    ) as Row | null;
-    return data ? ({ id: data.id, name: data.name, beds: data.beds, currency: data.currency, country: data.country } as Property) : null;
+  private toProperty(r: Row): Property {
+    return { id: String(r.id), name: String(r.name), beds: Number(r.beds), currency: String(r.currency), country: String(r.country), plan: (r.plan as Plan) ?? "free" };
   }
 
-  async createProperty(_userId: string, p: Omit<Property, "id">) {
+  async getProperty(_userId: string) {
+    // Row-level security limits this to properties the signed-in user belongs to.
     const data = must(
-      await this.db.from("properties").insert({ name: p.name, beds: p.beds, currency: p.currency, country: p.country }).select("id,name,beds,currency,country").single(),
+      await this.db.from("properties").select("id,name,beds,currency,country,plan").order("created_at").limit(1).maybeSingle(),
+      "Could not load property",
+    ) as Row | null;
+    return data ? this.toProperty(data) : null;
+  }
+
+  async createProperty(_userId: string, p: Omit<Property, "id" | "plan">) {
+    const data = must(
+      await this.db.from("properties").insert({ name: p.name, beds: p.beds, currency: p.currency, country: p.country }).select("id,name,beds,currency,country,plan").single(),
       "Could not create property",
     ) as Row;
-    return { id: data.id, name: data.name, beds: data.beds, currency: data.currency, country: data.country } as Property;
+    return this.toProperty(data);
+  }
+
+  async listMembers(propertyId: string) {
+    const rows = must(await this.db.from("property_members").select("user_id,email,role").eq("property_id", propertyId), "Could not load team") as Row[];
+    return rows.map<Member>((r) => ({ userId: String(r.user_id), email: String(r.email), role: r.role as Member["role"] }));
+  }
+
+  async listInvites(propertyId: string) {
+    const rows = must(await this.db.from("property_invites").select("email").eq("property_id", propertyId), "Could not load invites") as Row[];
+    return rows.map((r) => String(r.email));
+  }
+
+  async invite(propertyId: string, email: string) {
+    must(await this.db.from("property_invites").insert({ property_id: propertyId, email: email.toLowerCase() }), "Could not invite");
+  }
+
+  async revokeInvite(propertyId: string, email: string) {
+    must(await this.db.from("property_invites").delete().eq("property_id", propertyId).eq("email", email.toLowerCase()), "Could not revoke invite");
+  }
+
+  async removeMember(propertyId: string, userId: string) {
+    must(await this.db.from("property_members").delete().eq("property_id", propertyId).eq("user_id", userId), "Could not remove member");
+  }
+
+  async acceptInvitesFor(userId: string, _email: string) {
+    must(await this.db.rpc("accept_invites"), "Could not accept invites");
+    return this.getProperty(userId);
   }
 
   async getCostInputs(propertyId: string, month: string) {

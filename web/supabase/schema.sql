@@ -22,6 +22,103 @@ alter table public.properties add column if not exists country  text not null de
 
 create unique index if not exists properties_one_per_owner on public.properties(owner_id);
 
+-- Team access: up to 1 seat (free) or 3 seats (team) per property. Billing comes later; plan is a flag.
+alter table public.properties add column if not exists plan text not null default 'free';
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'properties_plan_check') then
+    alter table public.properties add constraint properties_plan_check check (plan in ('free','team'));
+  end if;
+end $$;
+
+create table if not exists public.property_members (
+  property_id uuid not null references public.properties(id) on delete cascade,
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  email       text not null default '',
+  role        text not null default 'manager' check (role in ('owner','manager')),
+  primary key (property_id, user_id)
+);
+create index if not exists property_members_by_user on public.property_members(user_id);
+
+create table if not exists public.property_invites (
+  property_id uuid not null references public.properties(id) on delete cascade,
+  email       text not null check (email = lower(email)),
+  invited_by  uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (property_id, email)
+);
+
+-- Existing owners become members (safe to re-run).
+insert into public.property_members (property_id, user_id, email, role)
+select p.id, p.owner_id, coalesce((select u.email from auth.users u where u.id = p.owner_id), ''), 'owner'
+from public.properties p
+on conflict do nothing;
+
+create or replace function public.is_member(pid uuid)
+returns boolean language sql stable security definer set search_path = public
+as $$ select exists (select 1 from public.property_members m where m.property_id = pid and m.user_id = auth.uid()) $$;
+
+create or replace function public.is_owner(pid uuid)
+returns boolean language sql stable security definer set search_path = public
+as $$ select exists (select 1 from public.property_members m where m.property_id = pid and m.user_id = auth.uid() and m.role = 'owner') $$;
+
+-- A new property's creator becomes its owner member.
+create or replace function public.add_owner_member()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+begin
+  insert into public.property_members (property_id, user_id, email, role)
+  values (new.id, new.owner_id, coalesce((select u.email from auth.users u where u.id = new.owner_id), ''), 'owner')
+  on conflict do nothing;
+  return new;
+end $$;
+drop trigger if exists properties_add_owner on public.properties;
+create trigger properties_add_owner after insert on public.properties
+  for each row execute function public.add_owner_member();
+
+-- Seat limit enforced in the database too, so it cannot be bypassed from the API.
+create or replace function public.enforce_seat_limit()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+declare seats int; used int;
+begin
+  select case when plan = 'team' then 3 else 1 end into seats from public.properties where id = new.property_id;
+  select (select count(*) from public.property_members where property_id = new.property_id)
+       + (select count(*) from public.property_invites where property_id = new.property_id) into used;
+  if used >= seats then
+    raise exception 'seat limit reached for this plan' using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+drop trigger if exists property_invites_seat_limit on public.property_invites;
+create trigger property_invites_seat_limit before insert on public.property_invites
+  for each row execute function public.enforce_seat_limit();
+
+-- An invited person joins by signing in with the invited email. Runs as the database so it
+-- can add them as a member; it only ever adds the caller, never anyone else.
+create or replace function public.accept_invites()
+returns uuid language plpgsql security definer set search_path = public
+as $$
+declare uid uuid := auth.uid(); mail text; pid uuid; seats int; used int; joined uuid;
+begin
+  if uid is null then return null; end if;
+  select lower(email) into mail from auth.users where id = uid;
+  if mail is null then return null; end if;
+  if exists (select 1 from public.property_members where user_id = uid) then return null; end if;
+  for pid in select i.property_id from public.property_invites i where i.email = mail loop
+    select case when plan = 'team' then 3 else 1 end into seats from public.properties where id = pid;
+    select count(*) into used from public.property_members where property_id = pid;
+    if used < seats and joined is null then
+      insert into public.property_members (property_id, user_id, email, role) values (pid, uid, mail, 'manager') on conflict do nothing;
+      joined := pid;
+    end if;
+    delete from public.property_invites where property_id = pid and email = mail;
+  end loop;
+  return joined;
+end $$;
+revoke all on function public.accept_invites() from public;
+grant execute on function public.accept_invites() to authenticated;
+
 create or replace function public.owns_property(pid uuid)
 returns boolean
 language sql stable security definer set search_path = public
@@ -134,6 +231,8 @@ create table if not exists public.review_snapshots (
 
 -- Row-level security.
 alter table public.properties       enable row level security;
+alter table public.property_members enable row level security;
+alter table public.property_invites enable row level security;
 alter table public.cost_inputs      enable row level security;
 alter table public.imports          enable row level security;
 alter table public.bookings         enable row level security;
@@ -143,10 +242,32 @@ alter table public.connections      enable row level security;
 alter table public.finding_actions  enable row level security;
 alter table public.review_snapshots enable row level security;
 
-drop policy if exists "owners manage their properties" on public.properties; -- name used by the earlier version
+drop policy if exists "owners manage their properties" on public.properties; -- name used by the earliest version
 drop policy if exists "owners manage their property" on public.properties;
-create policy "owners manage their property" on public.properties
-  for all to authenticated using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+drop policy if exists "members read property" on public.properties;
+drop policy if exists "users create their property" on public.properties;
+drop policy if exists "owners update property" on public.properties;
+drop policy if exists "owners delete property" on public.properties;
+-- owner_id = auth.uid() lets the creator read the row straight after inserting it.
+create policy "members read property" on public.properties
+  for select to authenticated using (public.is_member(id) or owner_id = auth.uid());
+create policy "users create their property" on public.properties
+  for insert to authenticated with check (owner_id = auth.uid());
+create policy "owners update property" on public.properties
+  for update to authenticated using (public.is_owner(id)) with check (public.is_owner(id));
+create policy "owners delete property" on public.properties
+  for delete to authenticated using (public.is_owner(id));
+
+drop policy if exists "members read members" on public.property_members;
+drop policy if exists "owners remove members" on public.property_members;
+create policy "members read members" on public.property_members
+  for select to authenticated using (public.is_member(property_id));
+create policy "owners remove members" on public.property_members
+  for delete to authenticated using (public.is_owner(property_id) and role <> 'owner');
+
+drop policy if exists "owners manage invites" on public.property_invites;
+create policy "owners manage invites" on public.property_invites
+  for all to authenticated using (public.is_owner(property_id)) with check (public.is_owner(property_id));
 
 do $$
 declare t text;
@@ -155,7 +276,7 @@ begin
   loop
     execute format('drop policy if exists "owners manage %1$s" on public.%1$I', t);
     execute format(
-      'create policy "owners manage %1$s" on public.%1$I for all to authenticated using (public.owns_property(property_id)) with check (public.owns_property(property_id))',
+      'create policy "owners manage %1$s" on public.%1$I for all to authenticated using (public.is_member(property_id)) with check (public.is_member(property_id))',
       t);
   end loop;
 end $$;
@@ -166,7 +287,6 @@ end $$;
 -- visitors (the anon role) have no policy, so they can read and write nothing.
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on
-  public.properties,
   public.cost_inputs,
   public.imports,
   public.bookings,
@@ -176,3 +296,12 @@ grant select, insert, update, delete on
   public.finding_actions,
   public.review_snapshots
 to authenticated;
+
+-- properties: column-level grants so nobody can set their own plan or owner through the API.
+revoke all on public.properties from authenticated;
+grant select, delete on public.properties to authenticated;
+grant insert (name, beds, currency, country) on public.properties to authenticated;
+grant update (name, beds, currency, country) on public.properties to authenticated;
+
+grant select, delete on public.property_members to authenticated;
+grant select, insert, delete on public.property_invites to authenticated;

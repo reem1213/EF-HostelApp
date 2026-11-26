@@ -2,6 +2,7 @@ import type { CostInputs } from "../domain/costs";
 import type { BookingRow, ExpenseRow, ImportKind, RowError, ShiftRow } from "../domain/import/parsers";
 import type { Benchmark, Booking, DateRange, Expense, ExpenseCategory } from "../domain/types";
 import type { ConnectionStatus, ProviderId } from "../integrations/providers";
+import type { Plan } from "../domain/team";
 
 export type Property = {
   id: string;
@@ -9,7 +10,10 @@ export type Property = {
   beds: number;
   currency: string;
   country: string;
+  plan: Plan;
 };
+
+export type Member = { userId: string; email: string; role: "owner" | "manager" };
 
 /** Targets used to judge a property. Placeholder industry assumptions until real benchmarking exists. */
 export const defaultBenchmark: Benchmark = {
@@ -57,8 +61,18 @@ export type ReviewSnapshot = {
 
 export interface Store {
   // property
+  /** The property this user belongs to (as owner or manager), if any. */
   getProperty(userId: string): Promise<Property | null>;
-  createProperty(userId: string, p: Omit<Property, "id">): Promise<Property>;
+  createProperty(userId: string, p: Omit<Property, "id" | "plan">, ownerEmail?: string): Promise<Property>;
+
+  // team
+  listMembers(propertyId: string): Promise<Member[]>;
+  listInvites(propertyId: string): Promise<string[]>;
+  invite(propertyId: string, email: string, invitedBy: string): Promise<void>;
+  revokeInvite(propertyId: string, email: string): Promise<void>;
+  removeMember(propertyId: string, userId: string): Promise<void>;
+  /** Turns a pending invite for this email into membership (if seats allow) and returns the property joined. */
+  acceptInvitesFor(userId: string, email: string): Promise<Property | null>;
 
   // monthly cost inputs (forms)
   getCostInputs(propertyId: string, month: string): Promise<CostInputs | null>;

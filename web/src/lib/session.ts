@@ -55,6 +55,8 @@ async function loadProperty(s: Session): Promise<Property> {
   let property: Property | null;
   try {
     property = await s.store.getProperty(s.user.id);
+    // First sign-in for someone who was invited: join the hostel that invited them.
+    if (!property) property = await s.store.acceptInvitesFor(s.user.id, s.user.email);
   } catch (e) {
     console.error("[session] could not read the property", e);
     redirect("/setup-problem");

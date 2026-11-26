@@ -6,6 +6,8 @@ import { ChevronRight, FileUp, PlugZap, Sparkles } from "lucide-react";
 import { signOut } from "@/app/actions/auth";
 import { PageHeader, Section } from "@/components/page-kit";
 import { PasswordForm } from "@/components/password-form";
+import { TeamPanel } from "@/components/team-panel";
+import { maxSeats } from "@/lib/domain/team";
 import { PageSkeleton } from "@/components/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +24,8 @@ export default function MorePage() {
 async function MoreView() {
   await connection();
   const { store, property, user, demo } = await requireProperty();
-  const connections = await store.listConnections(property.id);
+  const [connections, members, invites] = await Promise.all([store.listConnections(property.id), store.listMembers(property.id), store.listInvites(property.id)]);
+  const isOwner = members.some((m) => m.userId === user.id && m.role === "owner");
 
   return (
     <div className="flex flex-col gap-7">
@@ -44,6 +47,10 @@ async function MoreView() {
           </div>
           <p className="mt-3 text-[13.5px] text-muted">Cost tracking, leak alerts and prioritised fixes.</p>
         </div>
+      </Section>
+
+      <Section title="Team">
+        <TeamPanel members={members} invites={invites} plan={property.plan} seats={maxSeats(property.plan)} isOwner={isOwner} meId={user.id} />
       </Section>
 
       <Section title="Data">

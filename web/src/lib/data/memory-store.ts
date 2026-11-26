@@ -4,9 +4,11 @@ import type { CostInputs } from "../domain/costs";
 import type { BookingRow, ExpenseRow, ShiftRow } from "../domain/import/parsers";
 import type { Booking, DateRange, ExpenseCategory } from "../domain/types";
 import type { ProviderId } from "../integrations/providers";
+import { maxSeats, type Plan } from "../domain/team";
 import type {
   ConnectionRecord,
   ImportRecord,
+  Member,
   Property,
   ReviewSnapshot,
   Store,
@@ -18,7 +20,9 @@ type Conn = ConnectionRecord & { credentialsEnc: string };
 
 /** In-memory store for demo mode and tests. Data lives for the life of the server process. */
 export class MemoryStore implements Store {
-  private properties = new Map<string, Property>(); // by userId
+  private properties = new Map<string, Property>(); // by property id
+  private members = new Map<string, Member[]>(); // by property id
+  private invites = new Map<string, string[]>(); // by property id (lowercase emails)
   private costInputs = new Map<string, CostInputs>(); // `${propertyId}:${month}`
   private bookings = new Map<string, Map<string, Booking>>(); // property -> externalId
   private expenses = new Map<string, StoredExpense[]>();
@@ -29,13 +33,63 @@ export class MemoryStore implements Store {
   private reviews = new Map<string, ReviewSnapshot[]>();
 
   async getProperty(userId: string) {
-    return this.properties.get(userId) ?? null;
+    for (const [pid, list] of this.members) {
+      if (list.some((m) => m.userId === userId)) return this.properties.get(pid) ?? null;
+    }
+    return null;
   }
 
-  async createProperty(userId: string, p: Omit<Property, "id">) {
-    const prop = { id: randomUUID(), ...p };
-    this.properties.set(userId, prop);
+  async createProperty(userId: string, p: Omit<Property, "id" | "plan">, ownerEmail = "") {
+    const prop: Property = { id: randomUUID(), plan: "free", ...p };
+    this.properties.set(prop.id, prop);
+    this.members.set(prop.id, [{ userId, email: ownerEmail.toLowerCase(), role: "owner" }]);
     return prop;
+  }
+
+  /** Demo/test helper: billing will set this in production. Not part of the Store interface. */
+  setPlan(propertyId: string, plan: Plan) {
+    const prop = this.properties.get(propertyId);
+    if (prop) this.properties.set(propertyId, { ...prop, plan });
+  }
+
+  async listMembers(propertyId: string) {
+    return [...(this.members.get(propertyId) ?? [])];
+  }
+
+  async listInvites(propertyId: string) {
+    return [...(this.invites.get(propertyId) ?? [])];
+  }
+
+  async invite(propertyId: string, email: string, _invitedBy?: string) {
+    const prop = this.properties.get(propertyId);
+    const list = this.invites.get(propertyId) ?? [];
+    const used = (this.members.get(propertyId)?.length ?? 0) + list.length;
+    if (!prop || used >= maxSeats(prop.plan)) throw new Error("seat limit reached for this plan");
+    this.invites.set(propertyId, [...list, email.toLowerCase()]);
+  }
+
+  async revokeInvite(propertyId: string, email: string) {
+    this.invites.set(propertyId, (this.invites.get(propertyId) ?? []).filter((e) => e !== email.toLowerCase()));
+  }
+
+  async removeMember(propertyId: string, userId: string) {
+    this.members.set(propertyId, (this.members.get(propertyId) ?? []).filter((m) => m.userId !== userId || m.role === "owner"));
+  }
+
+  async acceptInvitesFor(userId: string, email: string) {
+    if (await this.getProperty(userId)) return null;
+    const mail = email.toLowerCase();
+    for (const [pid, list] of this.invites) {
+      if (!list.includes(mail)) continue;
+      const prop = this.properties.get(pid);
+      const members = this.members.get(pid) ?? [];
+      this.invites.set(pid, list.filter((e) => e !== mail));
+      if (prop && members.length < maxSeats(prop.plan)) {
+        this.members.set(pid, [...members, { userId, email: mail, role: "manager" }]);
+        return prop;
+      }
+    }
+    return null;
   }
 
   async getCostInputs(propertyId: string, month: string) {
