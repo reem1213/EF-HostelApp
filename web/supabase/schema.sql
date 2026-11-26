@@ -1,12 +1,11 @@
--- HostelPulse schema. Run once in the Supabase SQL editor.
+-- HostelPulse schema. Run in the Supabase SQL editor.
 --
--- If you ran the earlier version of this file, first run:
---   drop table if exists public.finding_actions;
+-- Safe to run more than once, and it upgrades the tables from the earlier version
+-- of this file (adds the missing properties columns, replaces the old
+-- finding_actions table, which only held test data).
 --
 -- Security model: every table is protected by row-level security. A signed-in
 -- user can only touch rows that belong to a property they own.
-
-create extension if not exists pgcrypto;
 
 create table if not exists public.properties (
   id         uuid primary key default gen_random_uuid(),
@@ -17,6 +16,10 @@ create table if not exists public.properties (
   country    text not null default '',
   created_at timestamptz not null default now()
 );
+-- Upgrade from the earlier version, whose properties table lacked these columns.
+alter table public.properties add column if not exists currency text not null default 'USD';
+alter table public.properties add column if not exists country  text not null default '';
+
 create unique index if not exists properties_one_per_owner on public.properties(owner_id);
 
 create or replace function public.owns_property(pid uuid)
@@ -101,6 +104,18 @@ create table if not exists public.connections (
   primary key (property_id, provider)
 );
 
+-- The earlier version keyed finding_actions by a text property id. Replace it.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'finding_actions'
+      and column_name = 'property_id' and data_type = 'text'
+  ) then
+    drop table public.finding_actions;
+  end if;
+end $$;
+
 create table if not exists public.finding_actions (
   property_id  uuid not null references public.properties(id) on delete cascade,
   finding_id   text not null check (char_length(finding_id) <= 120),
@@ -128,6 +143,8 @@ alter table public.connections      enable row level security;
 alter table public.finding_actions  enable row level security;
 alter table public.review_snapshots enable row level security;
 
+drop policy if exists "owners manage their properties" on public.properties; -- name used by the earlier version
+drop policy if exists "owners manage their property" on public.properties;
 create policy "owners manage their property" on public.properties
   for all to authenticated using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 
@@ -136,6 +153,7 @@ declare t text;
 begin
   foreach t in array array['cost_inputs','imports','bookings','expenses','shifts','connections','finding_actions','review_snapshots']
   loop
+    execute format('drop policy if exists "owners manage %1$s" on public.%1$I', t);
     execute format(
       'create policy "owners manage %1$s" on public.%1$I for all to authenticated using (public.owns_property(property_id)) with check (public.owns_property(property_id))',
       t);
