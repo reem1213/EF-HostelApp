@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Zap } from "lucide-react";
 
 import { CapacityWarning } from "@/components/capacity-warning";
 import { Chat } from "@/components/chat";
@@ -38,10 +38,17 @@ async function HomeView() {
   return (
     <div className="flex flex-col gap-6">
       <section className="rounded-[22px] bg-dark p-5 text-dark-text" aria-label="Your nights">
-        <p className="text-[13px] text-dark-text/75">
-          {property.name}
-          {d.hasAnyData ? ` · ${d.windowLabel}` : ""}
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-[13px] text-dark-text/75">
+            {property.name}
+            {d.hasAnyData ? ` · ${d.windowLabel}` : ""}
+          </p>
+          <Link href="/actions" className="-mr-1 -mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[12.5px] font-medium text-white">
+            <Zap className="size-3.5" aria-hidden />
+            Actions
+            {d.pendingRuns > 0 && <span className="grid min-w-5 place-items-center rounded-full bg-gold px-1 text-[11px] font-bold text-dark">{d.pendingRuns}</span>}
+          </Link>
+        </div>
         <h1 className="mt-1.5 font-serif text-[27px] font-semibold leading-[1.1] text-white">
           {d.quietestWeekday
             ? `${WEEKDAYS_LONG[d.quietestWeekday.weekday]}s are your quietest nights, ${Math.round(d.quietestWeekday.occupancy * 100)}% full.`

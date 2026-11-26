@@ -83,6 +83,15 @@ describe("audit rules", () => {
     expect(byId["direct-share"].kind).toBe("growth");
   });
 
+  it("offers to draft the refund request for a duplicate charge, and nothing else is automated yet", () => {
+    const r = runAudit(allRules());
+    const dupe = r.findings.find((f) => f.id === "dupe-mailchimp")!;
+    expect(dupe.automation).toMatchObject({ kind: "content_draft", label: "Draft a refund request" });
+    expect(String(dupe.automation!.params.summary)).toContain("Mailchimp");
+    expect(String(dupe.automation!.params.summary)).toContain("$10");
+    expect(r.findings.filter((f) => f.id !== "dupe-mailchimp").every((f) => f.automation === undefined)).toBe(true);
+  });
+
   it("sorts findings by impact, highest first", () => {
     const impacts = runAudit(allRules()).findings.map((f) => f.monthlyImpactCents);
     expect(impacts).toEqual([...impacts].sort((a, b) => b - a));

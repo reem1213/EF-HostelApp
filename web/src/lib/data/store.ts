@@ -3,6 +3,8 @@ import type { BookingRow, ExpenseRow, ImportKind, RowError, ShiftRow } from "../
 import type { Benchmark, Booking, DateRange, Expense, ExpenseCategory } from "../domain/types";
 import type { ConnectionStatus, ProviderId } from "../integrations/providers";
 import type { Plan } from "../domain/team";
+import type { Guardrails } from "../domain/guardrails";
+import type { ActionRun, NewRun, RunPatch } from "../automation/types";
 import type { OtaSettings } from "../domain/ota";
 import type { Socials } from "../domain/profile";
 
@@ -119,6 +121,16 @@ export interface Store {
   ): Promise<void>;
   getConnectionSecret(propertyId: string, provider: ProviderId): Promise<string | null>;
   deleteConnection(propertyId: string, provider: ProviderId): Promise<void>;
+
+  // automation runs (the audit log of every automated change)
+  createRun(propertyId: string, input: NewRun): Promise<ActionRun>;
+  getRun(propertyId: string, id: string): Promise<ActionRun | null>;
+  /** Atomically moves a "proposed" run to "approved". Returns null when it was no longer proposed. */
+  claimRun(propertyId: string, id: string, userId: string): Promise<ActionRun | null>;
+  updateRun(propertyId: string, id: string, patch: RunPatch): Promise<ActionRun>;
+  listRuns(propertyId: string, limit?: number): Promise<ActionRun[]>;
+  getGuardrails(propertyId: string): Promise<Guardrails>;
+  saveGuardrails(propertyId: string, g: Guardrails): Promise<void>;
 
   // progress on fixes
   addressedIds(propertyId: string): Promise<Set<string>>;

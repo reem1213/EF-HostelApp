@@ -6,6 +6,8 @@ import type { Booking, DateRange, ExpenseCategory } from "../domain/types";
 import type { ConnectionStatus, ProviderId } from "../integrations/providers";
 import type { ConnectionRecord, ImportRecord, Member, NewProperty, Property, PropertyPatch, ReviewSnapshot, Store, StoredExpense, StoredShift } from "./store";
 import type { Plan } from "../domain/team";
+import { defaultGuardrails, type Guardrails } from "../domain/guardrails";
+import type { ActionRun, NewRun, RunPatch } from "../automation/types";
 
 /** Supabase implementation of the Store. Row-level security scopes every query to the signed-in user. */
 
@@ -338,6 +340,76 @@ export class SupabaseStore implements Store {
 
   async deleteConnection(propertyId: string, provider: ProviderId) {
     must(await this.db.from("connections").delete().eq("property_id", propertyId).eq("provider", provider), "Could not remove connection");
+  }
+
+  private toRun(r: Row): ActionRun {
+    return {
+      id: String(r.id),
+      propertyId: String(r.property_id),
+      kind: r.kind as ActionRun["kind"],
+      title: String(r.title),
+      params: (r.params as Record<string, unknown>) ?? {},
+      before: r.before ?? null,
+      after: r.after ?? null,
+      status: r.status as ActionRun["status"],
+      reversible: Boolean(r.reversible),
+      simulated: Boolean(r.simulated),
+      createdBy: String(r.created_by),
+      approvedBy: (r.approved_by as string | null) ?? null,
+      createdAt: new Date(String(r.created_at)),
+      appliedAt: r.applied_at ? new Date(String(r.applied_at)) : null,
+      error: (r.error as string | null) ?? null,
+    };
+  }
+
+  async createRun(propertyId: string, input: NewRun) {
+    const r = must(
+      await this.db.from("automation_runs").insert({ property_id: propertyId, kind: input.kind, title: input.title, params: input.params, created_by: input.createdBy }).select("*").single(),
+      "Could not save the action",
+    ) as Row;
+    return this.toRun(r);
+  }
+
+  async getRun(propertyId: string, id: string) {
+    const r = must(await this.db.from("automation_runs").select("*").eq("property_id", propertyId).eq("id", id).maybeSingle(), "Could not load the action") as Row | null;
+    return r ? this.toRun(r) : null;
+  }
+
+  async claimRun(propertyId: string, id: string, userId: string) {
+    // The status filter makes this atomic: only one caller can move proposed -> approved.
+    const r = must(
+      await this.db.from("automation_runs").update({ status: "approved", approved_by: userId }).eq("property_id", propertyId).eq("id", id).eq("status", "proposed").select("*").maybeSingle(),
+      "Could not approve the action",
+    ) as Row | null;
+    return r ? this.toRun(r) : null;
+  }
+
+  async updateRun(propertyId: string, id: string, patch: RunPatch) {
+    const cols: Row = {};
+    if (patch.status !== undefined) cols.status = patch.status;
+    if (patch.before !== undefined) cols.before = patch.before;
+    if (patch.after !== undefined) cols.after = patch.after;
+    if (patch.reversible !== undefined) cols.reversible = patch.reversible;
+    if (patch.simulated !== undefined) cols.simulated = patch.simulated;
+    if (patch.approvedBy !== undefined) cols.approved_by = patch.approvedBy;
+    if (patch.appliedAt !== undefined) cols.applied_at = patch.appliedAt ? patch.appliedAt.toISOString() : null;
+    if (patch.error !== undefined) cols.error = patch.error;
+    const r = must(await this.db.from("automation_runs").update(cols).eq("property_id", propertyId).eq("id", id).select("*").single(), "Could not update the action") as Row;
+    return this.toRun(r);
+  }
+
+  async listRuns(propertyId: string, limit = 50) {
+    const rows = must(await this.db.from("automation_runs").select("*").eq("property_id", propertyId).order("created_at", { ascending: false }).limit(limit), "Could not load actions") as Row[];
+    return rows.map((r) => this.toRun(r));
+  }
+
+  async getGuardrails(propertyId: string) {
+    const r = must(await this.db.from("properties").select("guardrails").eq("id", propertyId).maybeSingle(), "Could not load limits") as Row | null;
+    return { ...defaultGuardrails, ...((r?.guardrails as Partial<Guardrails> | null) ?? {}) };
+  }
+
+  async saveGuardrails(propertyId: string, g: Guardrails) {
+    must(await this.db.from("properties").update({ guardrails: g }).eq("id", propertyId), "Could not save limits");
   }
 
   async addressedIds(propertyId: string) {

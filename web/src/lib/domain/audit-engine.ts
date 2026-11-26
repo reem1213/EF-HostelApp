@@ -217,6 +217,11 @@ function duplicateSoftware(expenses: Expense[]): Finding[] {
         "Check whether you have two accounts or two plans, and cancel the one you do not use.",
         "Ask the vendor for a refund of the extra charge. Most will credit the last billing period.",
       ],
+      automation: {
+        kind: "content_draft",
+        label: "Draft a refund request",
+        params: { summary: `Ask ${sorted[0].merchant} to refund the duplicate charge of ${dollars(extra)}` },
+      },
     });
   }
   return out;

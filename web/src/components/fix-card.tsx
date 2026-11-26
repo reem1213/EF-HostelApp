@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { ArrowUpRight, Check, ChevronDown, TriangleAlert, Wrench } from "lucide-react";
+import { ArrowUpRight, Check, ChevronDown, TriangleAlert, Wrench, Zap } from "lucide-react";
 
+import { useRouter } from "next/navigation";
+
+import { proposeFindingAutomation } from "@/app/actions/automation";
 import { markFindingDone } from "@/app/actions/property";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +31,7 @@ export function FixCard({ finding, defaultOpen = false, className }: { finding: 
   const [open, setOpen] = useState(defaultOpen);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
   const setupLink = finding.kind === "setup" ? SETUP_LINKS[finding.id] : undefined;
   const growth = finding.kind === "growth";
 
@@ -80,8 +84,26 @@ export function FixCard({ finding, defaultOpen = false, className }: { finding: 
                 {setupLink.label}
               </Link>
             )}
+            {finding.automation && (
+              <Button
+                className="flex-1"
+                disabled={pending}
+                onClick={() =>
+                  start(async () => {
+                    setError(null);
+                    const res = await proposeFindingAutomation(finding.id);
+                    if (res.error) setError(res.error);
+                    else router.push("/actions");
+                  })
+                }
+              >
+                <Zap className="size-4" aria-hidden />
+                {pending ? "Preparing…" : finding.automation.label}
+              </Button>
+            )}
             {finding.kind !== "setup" && (
               <Button
+                variant={finding.automation ? "outline" : "default"}
                 className="flex-1"
                 disabled={pending}
                 onClick={() =>

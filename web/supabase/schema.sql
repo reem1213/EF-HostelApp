@@ -26,6 +26,8 @@ alter table public.properties add column if not exists socials         jsonb not
 alter table public.properties add column if not exists postal_address  text not null default '';
 alter table public.properties add column if not exists reply_to_email  text not null default '';
 alter table public.properties add column if not exists ota_settings    jsonb not null default '{}'::jsonb;
+-- Limits on automatic price changes (see the app's guardrails).
+alter table public.properties add column if not exists guardrails      jsonb not null default '{}'::jsonb;
 
 create unique index if not exists properties_one_per_owner on public.properties(owner_id);
 
@@ -227,6 +229,26 @@ create table if not exists public.finding_actions (
   primary key (property_id, finding_id)
 );
 
+-- Every automated change, from proposal to approval to (maybe) undo. This is the audit log.
+create table if not exists public.automation_runs (
+  id          uuid primary key default gen_random_uuid(),
+  property_id uuid not null references public.properties(id) on delete cascade,
+  kind        text not null check (kind in ('price_update','email_campaign','ticket_draft','content_draft')),
+  title       text not null check (char_length(title) between 1 and 200),
+  params      jsonb not null default '{}'::jsonb,
+  before      jsonb,
+  after       jsonb,
+  status      text not null default 'proposed' check (status in ('proposed','approved','applied','failed','undone','rejected')),
+  reversible  boolean not null default false,
+  simulated   boolean not null default true,
+  created_by  uuid not null default auth.uid() references auth.users(id),
+  approved_by uuid references auth.users(id),
+  created_at  timestamptz not null default now(),
+  applied_at  timestamptz,
+  error       text
+);
+create index if not exists automation_runs_by_property on public.automation_runs(property_id, created_at desc);
+
 create table if not exists public.review_snapshots (
   property_id  uuid not null references public.properties(id) on delete cascade,
   month        text not null check (month ~ '^\d{4}-(0[1-9]|1[0-2])$'),
@@ -248,6 +270,7 @@ alter table public.shifts           enable row level security;
 alter table public.connections      enable row level security;
 alter table public.finding_actions  enable row level security;
 alter table public.review_snapshots enable row level security;
+alter table public.automation_runs  enable row level security;
 
 drop policy if exists "owners manage their properties" on public.properties; -- name used by the earliest version
 drop policy if exists "owners manage their property" on public.properties;
@@ -288,6 +311,17 @@ begin
   end loop;
 end $$;
 
+-- Automation runs: members read and update; a member can only create runs as themselves; nobody deletes.
+drop policy if exists "members read runs" on public.automation_runs;
+drop policy if exists "members create runs" on public.automation_runs;
+drop policy if exists "members update runs" on public.automation_runs;
+create policy "members read runs" on public.automation_runs
+  for select to authenticated using (public.is_member(property_id));
+create policy "members create runs" on public.automation_runs
+  for insert to authenticated with check (public.is_member(property_id) and created_by = auth.uid());
+create policy "members update runs" on public.automation_runs
+  for update to authenticated using (public.is_member(property_id)) with check (public.is_member(property_id));
+
 -- Let signed-in users reach these tables through the API. Newer Supabase projects
 -- do not grant this automatically, which shows up as "permission denied for table".
 -- Row-level security above still limits every user to their own rows. Signed-out
@@ -308,7 +342,8 @@ to authenticated;
 revoke all on public.properties from authenticated;
 grant select, delete on public.properties to authenticated;
 grant insert (name, beds, currency, country, otas, website, socials, postal_address, reply_to_email, ota_settings) on public.properties to authenticated;
-grant update (name, beds, currency, country, otas, website, socials, postal_address, reply_to_email, ota_settings) on public.properties to authenticated;
+grant update (name, beds, currency, country, otas, website, socials, postal_address, reply_to_email, ota_settings, guardrails) on public.properties to authenticated;
+grant select, insert, update on public.automation_runs to authenticated;
 
 grant select, delete on public.property_members to authenticated;
 grant select, insert, delete on public.property_invites to authenticated;

@@ -5,6 +5,8 @@ import type { BookingRow, ExpenseRow, ShiftRow } from "../domain/import/parsers"
 import type { Booking, DateRange, ExpenseCategory } from "../domain/types";
 import type { ProviderId } from "../integrations/providers";
 import { maxSeats, type Plan } from "../domain/team";
+import { defaultGuardrails, type Guardrails } from "../domain/guardrails";
+import type { ActionRun, NewRun, RunPatch } from "../automation/types";
 import type {
   ConnectionRecord,
   ImportRecord,
@@ -33,6 +35,8 @@ export class MemoryStore implements Store {
   private connections = new Map<string, Conn>(); // `${propertyId}:${provider}`
   private addressed = new Map<string, Set<string>>();
   private reviews = new Map<string, ReviewSnapshot[]>();
+  private runs = new Map<string, ActionRun[]>(); // newest first
+  private guardrails = new Map<string, Guardrails>();
 
   async getProperty(userId: string) {
     for (const [pid, list] of this.members) {
@@ -209,6 +213,57 @@ export class MemoryStore implements Store {
 
   async deleteConnection(propertyId: string, provider: ProviderId) {
     this.connections.delete(`${propertyId}:${provider}`);
+  }
+
+  async createRun(propertyId: string, input: NewRun) {
+    const run: ActionRun = {
+      id: randomUUID(),
+      propertyId,
+      ...input,
+      before: null,
+      after: null,
+      status: "proposed",
+      reversible: false,
+      simulated: true,
+      approvedBy: null,
+      createdAt: new Date(),
+      appliedAt: null,
+      error: null,
+    };
+    this.runs.set(propertyId, [run, ...(this.runs.get(propertyId) ?? [])]);
+    return { ...run };
+  }
+
+  async getRun(propertyId: string, id: string) {
+    const run = (this.runs.get(propertyId) ?? []).find((r) => r.id === id);
+    return run ? { ...run } : null;
+  }
+
+  async claimRun(propertyId: string, id: string, userId: string) {
+    const run = (this.runs.get(propertyId) ?? []).find((r) => r.id === id);
+    if (!run || run.status !== "proposed") return null;
+    run.status = "approved";
+    run.approvedBy = userId;
+    return { ...run };
+  }
+
+  async updateRun(propertyId: string, id: string, patch: RunPatch) {
+    const run = (this.runs.get(propertyId) ?? []).find((r) => r.id === id);
+    if (!run) throw new Error("run not found");
+    Object.assign(run, patch);
+    return { ...run };
+  }
+
+  async listRuns(propertyId: string, limit = 50) {
+    return (this.runs.get(propertyId) ?? []).slice(0, limit).map((r) => ({ ...r }));
+  }
+
+  async getGuardrails(propertyId: string) {
+    return this.guardrails.get(propertyId) ?? defaultGuardrails;
+  }
+
+  async saveGuardrails(propertyId: string, g: Guardrails) {
+    this.guardrails.set(propertyId, g);
   }
 
   async addressedIds(propertyId: string) {

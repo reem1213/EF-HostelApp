@@ -9,6 +9,8 @@ import { materializeInputs } from "./domain/costs";
 import { defaultBenchmark, type ConnectionRecord, type ImportRecord, type Property, type ReviewSnapshot, type Store, type StoredExpense } from "./data/store";
 import { costHistory, monthlySeries, weekdayOccupancy } from "./domain/series";
 import { nightStrip, type NightCell } from "./domain/night-strip";
+import { priceFloorCents, type Guardrails } from "./domain/guardrails";
+import type { ActionRun } from "./automation/types";
 import { chooseWindow, formatRange, monthOf, previousMonth, previousWindow, utcDay } from "./period";
 
 const DAY = 86_400_000;
@@ -47,6 +49,12 @@ export type Dashboard = {
   nights: NightCell[];
   /** The weekday with the lowest occupancy, or null with no bookings. */
   quietestWeekday: { weekday: number; occupancy: number } | null;
+  /** Recent automation runs, newest first, and how many await approval. */
+  runs: ActionRun[];
+  pendingRuns: number;
+  guardrails: Guardrails;
+  /** Lowest allowed price for a dorm bed: cost per bed plus the minimum margin. */
+  floorCents: number;
 };
 
 /** Builds everything the pages show from stored data. Pure orchestration; the maths lives in the domain layer. */
@@ -57,7 +65,7 @@ export async function loadDashboard(store: Store, property: Property, now = new 
   const month = monthOf(new Date(window.end.getTime() - DAY));
   const prevMonthKey = previousMonth(month);
 
-  const [expensesAll, shifts, costInputs, prevCostInputs, imports, connections, reviews, addressed, allCostInputs] = await Promise.all([
+  const [expensesAll, shifts, costInputs, prevCostInputs, imports, connections, reviews, addressed, allCostInputs, runs, guardrails] = await Promise.all([
     store.listExpenses(property.id, { start: prev.start, end: window.end }),
     store.listShifts(property.id, window),
     store.getCostInputs(property.id, month),
@@ -67,6 +75,8 @@ export async function loadDashboard(store: Store, property: Property, now = new 
     store.listReviewSnapshots(property.id),
     store.addressedIds(property.id),
     store.listCostInputs(property.id),
+    store.listRuns(property.id, 30),
+    store.getGuardrails(property.id),
   ]);
 
   const inWindow = (e: StoredExpense, w: DateRange) => e.date >= w.start && e.date < w.end;
@@ -142,6 +152,10 @@ export async function loadDashboard(store: Store, property: Property, now = new 
     weekday,
     nights: nightStrip(allBookings, property.beds, new Date(lastDay.getTime() - 20 * DAY), 31, utcDay(now)),
     quietestWeekday: quietestWeekday(weekday, metrics.bookingsCount),
+    runs,
+    pendingRuns: runs.filter((r) => r.status === "proposed").length,
+    guardrails,
+    floorCents: priceFloorCents(breakdown.perBedNightCents, guardrails.minMarginPct),
   };
 }
 

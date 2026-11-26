@@ -116,6 +116,31 @@ describe("night strip on the dashboard", () => {
   });
 });
 
+describe("automation on the dashboard", () => {
+  it("exposes the guardrails, the cost-based price floor, and pending runs", async () => {
+    const { store, property } = await demo();
+    const empty = await loadDashboard(store, property, now);
+    expect(empty.guardrails).toEqual({ minMarginPct: 0.2, ceilingCents: null, maxChangePctPerDay: 0.15 });
+    // floor = ceil(cost per bed x 1.2)
+    expect(empty.floorCents).toBe(Math.ceil(empty.breakdown.perBedNightCents * 1.2 - 1e-9));
+    expect(empty.floorCents).toBeGreaterThan(empty.breakdown.perBedNightCents);
+    expect(empty.pendingRuns).toBe(0);
+
+    await store.createRun(property.id, { kind: "content_draft", title: "t", params: {}, createdBy: "demo-user" });
+    const withRun = await loadDashboard(store, property, now);
+    expect(withRun.runs).toHaveLength(1);
+    expect(withRun.pendingRuns).toBe(1);
+  });
+
+  it("uses limits the owner saved", async () => {
+    const { store, property } = await demo();
+    await store.saveGuardrails(property.id, { minMarginPct: 0.5, ceilingCents: 9000, maxChangePctPerDay: 0.1 });
+    const d = await loadDashboard(store, property, now);
+    expect(d.guardrails.minMarginPct).toBe(0.5);
+    expect(d.floorCents).toBe(Math.ceil(d.breakdown.perBedNightCents * 1.5 - 1e-9));
+  });
+});
+
 describe("capacity on the dashboard", () => {
   it("is fine for the demo hostel and exceeded once the declared beds shrink below the peak", async () => {
     const { store, property } = await demo();

@@ -85,6 +85,8 @@ export type AuditInput = {
 /** leak = money lost, growth = money to gain, setup = data needed to unlock the rest. */
 export type FindingKind = "leak" | "growth" | "setup";
 export type FindingArea = "money" | "costs" | "growth" | "setup";
+import type { AutomationKind } from "../automation/types";
+
 export type PageKey = "home" | "costs" | "profit" | "reports" | "setup";
 export type Severity = "low" | "medium" | "high";
 
@@ -101,6 +103,8 @@ export type Finding = {
   steps: string[];
   /** Page this fix belongs on. */
   page: PageKey;
+  /** Present when software can do this fix. The Apply button proposes it; the owner still approves. */
+  automation?: { kind: AutomationKind; params: Record<string, unknown>; label: string };
 };
 
 export type AuditResult = {
