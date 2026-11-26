@@ -84,4 +84,20 @@ describe("runImport", () => {
     expect(dateOrderFor("")).toBe("mdy");
     expect(dateOrderFor("Portugal")).toBe("dmy");
   });
+
+  it("warns when imported bookings need more beds than the hostel declared", async () => {
+    const { store, property } = await setup(); // 10 beds
+    const rows = Array.from({ length: 11 }, (_, i) => `R${i},2026-11-10,2026-11-12,50`).join("\n");
+    const out = await runImport({ store, property, kind: "bookings", filename: "crowded.csv", text: `Reservation ID,Check-in,Check-out,Total\n${rows}` });
+    expect(out.ok).toBe(true);
+    expect(out.capacity).toMatchObject({ exceeded: true, peak: 11, nightsOver: 2 });
+  });
+
+  it("reports capacity as fine when the beds are enough, and not at all for other file types", async () => {
+    const { store, property } = await setup();
+    const ok = await runImport({ store, property, kind: "bookings", filename: "ok.csv", text: "Reservation ID,Check-in,Check-out,Total\nA,2026-11-10,2026-11-12,50" });
+    expect(ok.capacity).toMatchObject({ exceeded: false, peak: 1 });
+    const bank = await runImport({ store, property, kind: "bank", filename: "b.csv", text: "Date,Description,Amount\n2026-11-02,Clean Linen Co,-612.00" });
+    expect(bank.capacity).toBeUndefined();
+  });
 });

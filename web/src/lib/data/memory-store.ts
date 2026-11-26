@@ -4,21 +4,35 @@ import type { CostInputs } from "../domain/costs";
 import type { BookingRow, ExpenseRow, ShiftRow } from "../domain/import/parsers";
 import type { Booking, DateRange, ExpenseCategory } from "../domain/types";
 import type { ProviderId } from "../integrations/providers";
+import { maxSeats, type Plan } from "../domain/team";
+import { defaultGuardrails, type Guardrails } from "../domain/guardrails";
+import type { ActionRun, NewRun, RunPatch } from "../automation/types";
+import type { Competitor, RateSnapshot } from "../domain/rates";
+import type { TicketStatus } from "../domain/tickets";
+import type { OutboxRow } from "../email/send";
 import type {
   ConnectionRecord,
   ImportRecord,
+  Member,
+  NewProperty,
   Property,
+  PropertyPatch,
   ReviewSnapshot,
   Store,
   StoredExpense,
   StoredShift,
+  Ticket,
+  OutboxEntry,
+  Campaign,
 } from "./store";
 
 type Conn = ConnectionRecord & { credentialsEnc: string };
 
 /** In-memory store for demo mode and tests. Data lives for the life of the server process. */
 export class MemoryStore implements Store {
-  private properties = new Map<string, Property>(); // by userId
+  private properties = new Map<string, Property>(); // by property id
+  private members = new Map<string, Member[]>(); // by property id
+  private invites = new Map<string, string[]>(); // by property id (lowercase emails)
   private costInputs = new Map<string, CostInputs>(); // `${propertyId}:${month}`
   private bookings = new Map<string, Map<string, Booking>>(); // property -> externalId
   private expenses = new Map<string, StoredExpense[]>();
@@ -27,15 +41,88 @@ export class MemoryStore implements Store {
   private connections = new Map<string, Conn>(); // `${propertyId}:${provider}`
   private addressed = new Map<string, Set<string>>();
   private reviews = new Map<string, ReviewSnapshot[]>();
+  private runs = new Map<string, ActionRun[]>(); // newest first
+  private rates = new Map<string, RateSnapshot[]>();
+  private competitors = new Map<string, Competitor[]>();
+  private guardrails = new Map<string, Guardrails>();
+  private tickets = new Map<string, Ticket[]>();
+  private suppressions = new Map<string, Set<string>>();
+  private outbox = new Map<string, OutboxEntry[]>(); // newest first
+  private campaigns = new Map<string, Campaign[]>(); // newest first
 
   async getProperty(userId: string) {
-    return this.properties.get(userId) ?? null;
+    for (const [pid, list] of this.members) {
+      if (list.some((m) => m.userId === userId)) return this.properties.get(pid) ?? null;
+    }
+    return null;
   }
 
-  async createProperty(userId: string, p: Omit<Property, "id">) {
-    const prop = { id: randomUUID(), ...p };
-    this.properties.set(userId, prop);
+  async createProperty(userId: string, p: NewProperty, ownerEmail = "") {
+    const prop: Property = {
+      id: randomUUID(),
+      plan: "free",
+      otas: [],
+      website: null,
+      socials: {},
+      postalAddress: "",
+      replyToEmail: "",
+      otaSettings: {},
+      ...p,
+    };
+    this.properties.set(prop.id, prop);
+    this.members.set(prop.id, [{ userId, email: ownerEmail.toLowerCase(), role: "owner" }]);
     return prop;
+  }
+
+  async updateProperty(propertyId: string, patch: PropertyPatch) {
+    const prop = this.properties.get(propertyId);
+    if (prop) this.properties.set(propertyId, { ...prop, ...patch });
+  }
+
+  /** Demo/test helper: billing will set this in production. Not part of the Store interface. */
+  setPlan(propertyId: string, plan: Plan) {
+    const prop = this.properties.get(propertyId);
+    if (prop) this.properties.set(propertyId, { ...prop, plan });
+  }
+
+  async listMembers(propertyId: string) {
+    return [...(this.members.get(propertyId) ?? [])];
+  }
+
+  async listInvites(propertyId: string) {
+    return [...(this.invites.get(propertyId) ?? [])];
+  }
+
+  async invite(propertyId: string, email: string, _invitedBy?: string) {
+    const prop = this.properties.get(propertyId);
+    const list = this.invites.get(propertyId) ?? [];
+    const used = (this.members.get(propertyId)?.length ?? 0) + list.length;
+    if (!prop || used >= maxSeats(prop.plan)) throw new Error("seat limit reached for this plan");
+    this.invites.set(propertyId, [...list, email.toLowerCase()]);
+  }
+
+  async revokeInvite(propertyId: string, email: string) {
+    this.invites.set(propertyId, (this.invites.get(propertyId) ?? []).filter((e) => e !== email.toLowerCase()));
+  }
+
+  async removeMember(propertyId: string, userId: string) {
+    this.members.set(propertyId, (this.members.get(propertyId) ?? []).filter((m) => m.userId !== userId || m.role === "owner"));
+  }
+
+  async acceptInvitesFor(userId: string, email: string) {
+    if (await this.getProperty(userId)) return null;
+    const mail = email.toLowerCase();
+    for (const [pid, list] of this.invites) {
+      if (!list.includes(mail)) continue;
+      const prop = this.properties.get(pid);
+      const members = this.members.get(pid) ?? [];
+      this.invites.set(pid, list.filter((e) => e !== mail));
+      if (prop && members.length < maxSeats(prop.plan)) {
+        this.members.set(pid, [...members, { userId, email: mail, role: "manager" }]);
+        return prop;
+      }
+    }
+    return null;
   }
 
   async getCostInputs(propertyId: string, month: string) {
@@ -44,6 +131,10 @@ export class MemoryStore implements Store {
 
   async saveCostInputs(propertyId: string, inputs: CostInputs) {
     this.costInputs.set(`${propertyId}:${inputs.month}`, inputs);
+  }
+
+  async listCostInputs(propertyId: string) {
+    return [...this.costInputs.entries()].filter(([k]) => k.startsWith(`${propertyId}:`)).map(([, v]) => v);
   }
 
   async listBookings(propertyId: string) {
@@ -134,6 +225,139 @@ export class MemoryStore implements Store {
 
   async deleteConnection(propertyId: string, provider: ProviderId) {
     this.connections.delete(`${propertyId}:${provider}`);
+  }
+
+  async createRun(propertyId: string, input: NewRun) {
+    const run: ActionRun = {
+      id: randomUUID(),
+      propertyId,
+      ...input,
+      before: null,
+      after: null,
+      status: "proposed",
+      reversible: false,
+      simulated: true,
+      approvedBy: null,
+      createdAt: new Date(),
+      appliedAt: null,
+      error: null,
+    };
+    this.runs.set(propertyId, [run, ...(this.runs.get(propertyId) ?? [])]);
+    return { ...run };
+  }
+
+  async getRun(propertyId: string, id: string) {
+    const run = (this.runs.get(propertyId) ?? []).find((r) => r.id === id);
+    return run ? { ...run } : null;
+  }
+
+  async claimRun(propertyId: string, id: string, userId: string) {
+    const run = (this.runs.get(propertyId) ?? []).find((r) => r.id === id);
+    if (!run || run.status !== "proposed") return null;
+    run.status = "approved";
+    run.approvedBy = userId;
+    return { ...run };
+  }
+
+  async updateRun(propertyId: string, id: string, patch: RunPatch) {
+    const run = (this.runs.get(propertyId) ?? []).find((r) => r.id === id);
+    if (!run) throw new Error("run not found");
+    Object.assign(run, patch);
+    return { ...run };
+  }
+
+  async listRuns(propertyId: string, limit = 50) {
+    return (this.runs.get(propertyId) ?? []).slice(0, limit).map((r) => ({ ...r }));
+  }
+
+  async listTickets(propertyId: string) {
+    return (this.tickets.get(propertyId) ?? []).map((t) => ({ ...t }));
+  }
+
+  async upsertTicket(propertyId: string, t: { otaId: string; status: TicketStatus; subject: string; body: string }) {
+    const list = this.tickets.get(propertyId) ?? [];
+    const now = new Date();
+    const i = list.findIndex((x) => x.otaId === t.otaId);
+    const prev = i >= 0 ? list[i] : null;
+    const next: Ticket = {
+      ...t,
+      createdAt: prev?.createdAt ?? now,
+      submittedAt: prev?.submittedAt ?? (t.status !== "draft" ? now : null),
+      answeredAt: prev?.answeredAt ?? (t.status === "answered" ? now : null),
+    };
+    if (i >= 0) list[i] = next;
+    else list.push(next);
+    this.tickets.set(propertyId, list);
+  }
+
+  async listSuppressions(propertyId: string) {
+    return [...(this.suppressions.get(propertyId) ?? [])];
+  }
+
+  async addSuppression(propertyId: string, email: string) {
+    const set = this.suppressions.get(propertyId) ?? new Set<string>();
+    set.add(email.trim().toLowerCase());
+    this.suppressions.set(propertyId, set);
+  }
+
+  async addOutbox(propertyId: string, rows: OutboxRow[]) {
+    const now = new Date();
+    this.outbox.set(propertyId, [...rows.map((r) => ({ ...r, createdAt: now })).reverse(), ...(this.outbox.get(propertyId) ?? [])]);
+  }
+
+  async listOutbox(propertyId: string, limit = 50) {
+    return (this.outbox.get(propertyId) ?? []).slice(0, limit).map((r) => ({ ...r }));
+  }
+
+  async recordCampaign(propertyId: string, c: Omit<Campaign, "createdAt">) {
+    this.campaigns.set(propertyId, [{ ...c, createdAt: new Date() }, ...(this.campaigns.get(propertyId) ?? [])]);
+  }
+
+  async listCampaigns(propertyId: string, limit = 20) {
+    return (this.campaigns.get(propertyId) ?? []).slice(0, limit).map((c) => ({ ...c }));
+  }
+
+  async getGuardrails(propertyId: string) {
+    return this.guardrails.get(propertyId) ?? defaultGuardrails;
+  }
+
+  async saveGuardrails(propertyId: string, g: Guardrails) {
+    this.guardrails.set(propertyId, g);
+  }
+
+  async saveRates(propertyId: string, snaps: RateSnapshot[]) {
+    this.rates.set(propertyId, [...(this.rates.get(propertyId) ?? []), ...snaps.map((s) => ({ ...s }))]);
+  }
+
+  async listRates(propertyId: string, range: DateRange) {
+    return (this.rates.get(propertyId) ?? []).filter((r) => r.stayDate >= range.start && r.stayDate < range.end).map((r) => ({ ...r }));
+  }
+
+  async deleteManualRate(propertyId: string, key: { stayDate: Date; channel: string; roomType: string }) {
+    this.rates.set(
+      propertyId,
+      (this.rates.get(propertyId) ?? []).filter((r) => !(r.source === "manual" && r.competitorId === null && r.channel === key.channel && r.roomType === key.roomType && r.stayDate.getTime() === key.stayDate.getTime())),
+    );
+  }
+
+  async listCompetitors(propertyId: string) {
+    return [...(this.competitors.get(propertyId) ?? [])];
+  }
+
+  async addCompetitor(propertyId: string, name: string) {
+    const clean = name.trim();
+    if (!clean || clean.length > 80) throw new Error("Enter a name up to 80 characters.");
+    const list = this.competitors.get(propertyId) ?? [];
+    if (list.some((c) => c.name.toLowerCase() === clean.toLowerCase())) throw new Error("That competitor is already in your list.");
+    if (list.length >= 8) throw new Error("You can compare against up to 8 competitors.");
+    const c: Competitor = { id: randomUUID(), name: clean };
+    this.competitors.set(propertyId, [...list, c]);
+    return c;
+  }
+
+  async removeCompetitor(propertyId: string, id: string) {
+    this.competitors.set(propertyId, (this.competitors.get(propertyId) ?? []).filter((c) => c.id !== id));
+    this.rates.set(propertyId, (this.rates.get(propertyId) ?? []).filter((r) => r.competitorId !== id));
   }
 
   async addressedIds(propertyId: string) {

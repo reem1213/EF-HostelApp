@@ -24,6 +24,11 @@ async function demoStore(): Promise<MemoryStore> {
   return g.__hpStore;
 }
 
+/** The demo store when running without Supabase (public routes such as unsubscribe have no session), else null. */
+export async function getDemoStoreIfDemo(): Promise<MemoryStore | null> {
+  return supabaseConfigured() ? null : demoStore();
+}
+
 /** The signed-in session, or null. In demo mode (no Supabase configured) there is always a demo user. */
 export async function getSession(): Promise<Session | null> {
   if (!supabaseConfigured()) return { user: DEMO_USER, store: await demoStore(), demo: true };
@@ -55,6 +60,8 @@ async function loadProperty(s: Session): Promise<Property> {
   let property: Property | null;
   try {
     property = await s.store.getProperty(s.user.id);
+    // First sign-in for someone who was invited: join the hostel that invited them.
+    if (!property) property = await s.store.acceptInvitesFor(s.user.id, s.user.email);
   } catch (e) {
     console.error("[session] could not read the property", e);
     redirect("/setup-problem");

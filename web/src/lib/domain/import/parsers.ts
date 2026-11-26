@@ -46,7 +46,7 @@ const normHeader = (h: string) => h.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 type Raw = Record<string, string>;
 
-function readCsv(text: string): { rows: Raw[]; error?: string } {
+export function readCsv(text: string): { rows: Raw[]; error?: string } {
   if (text.length > MAX_IMPORT_BYTES) return { rows: [], error: "File is larger than 5 MB." };
   const res = Papa.parse<Raw>(text.replace(/^﻿/, ""), {
     header: true,
@@ -59,7 +59,7 @@ function readCsv(text: string): { rows: Raw[]; error?: string } {
   return { rows: res.data };
 }
 
-function pick(row: Raw, names: string[]): string {
+export function pick(row: Raw, names: string[]): string {
   for (const n of names) {
     const v = row[n];
     if (v !== undefined && v !== "") return v;
@@ -67,7 +67,7 @@ function pick(row: Raw, names: string[]): string {
   return "";
 }
 
-const hasColumn = (rows: Raw[], names: string[]) => names.some((n) => rows.some((r) => n in r));
+export const hasColumn = (rows: Raw[], names: string[]) => names.some((n) => rows.some((r) => n in r));
 
 // ---- dates ----------------------------------------------------------------
 
@@ -195,7 +195,7 @@ export function categorize(description: string): ExpenseCategory {
   return "other";
 }
 
-const toCents = (raw: string) => {
+export const toCents = (raw: string) => {
   const cleaned = raw.replace(/[^0-9.,()-]/g, "");
   const negative = cleaned.includes("(") || cleaned.startsWith("-");
   const cents = centsFromDecimal(cleaned.replace(/[()-]/g, ""));

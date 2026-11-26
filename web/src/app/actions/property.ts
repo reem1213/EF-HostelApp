@@ -7,6 +7,7 @@ import { z } from "zod";
 import { loadDashboard } from "@/lib/dashboard";
 import type { CostInputs } from "@/lib/domain/costs";
 import { echo, fieldErrors, readCostFields } from "@/lib/forms";
+import { PROFILE_FIELD_NAMES, readProfileForm } from "@/lib/profile-form";
 import { monthOf } from "@/lib/period";
 import { requireProperty, requireSession } from "@/lib/session";
 import { supabaseConfigured, supabaseServer } from "@/lib/supabase/server";
@@ -39,14 +40,18 @@ async function completeOnboardingImpl(_prev: ActionState, fd: FormData): Promise
 
   const p = propertySchema.safeParse({ name: fd.get("name"), beds: fd.get("beds"), country: fd.get("country") ?? "" });
   const costs = readCostFields(fd);
-  if (!p.success || Object.keys(costs.errors).length > 0) {
+  const profile = readProfileForm(fd);
+  if (!p.success || Object.keys(costs.errors).length > 0 || !profile.ok) {
     return {
-      fieldErrors: { ...(p.success ? {} : fieldErrors(p.error)), ...costs.errors },
-      values: echo(fd, ["name", "beds", "country", "rent", "utilities", "staff", "laundry", "breakfast"]),
+      fieldErrors: { ...(p.success ? {} : fieldErrors(p.error)), ...costs.errors, ...(profile.ok ? {} : profile.errors) },
+      values: {
+        ...echo(fd, ["name", "beds", "country", "rent", "utilities", "staff", "laundry", "breakfast", ...PROFILE_FIELD_NAMES]),
+        otas: fd.getAll("otas").map(String).join(","),
+      },
     };
   }
 
-  const property = await session.store.createProperty(session.user.id, { ...p.data, currency: "USD" });
+  const property = await session.store.createProperty(session.user.id, { ...p.data, currency: "USD", ...profile.value }, session.user.email);
   await session.store.saveCostInputs(property.id, toInputs(monthOf(new Date()), costs.cents));
   refresh();
   redirect("/");
@@ -81,7 +86,33 @@ async function saveReviewImpl(_prev: ActionState, fd: FormData): Promise<ActionS
   return { ok: true, message: "Saved. Your next steps have been updated." };
 }
 
+async function isOwner(store: { listMembers(id: string): Promise<{ userId: string; role: string }[]> }, propertyId: string, userId: string) {
+  return (await store.listMembers(propertyId)).some((m) => m.userId === userId && m.role === "owner");
+}
+
 /** Marks a fix as done. Only ids the current audit actually produced are accepted. */
+async function updateProfileImpl(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const { store, property, user } = await requireProperty();
+  if (!(await isOwner(store, property.id, user.id))) return { error: "Only the owner can change these settings." };
+  const profile = readProfileForm(fd);
+  if (!profile.ok) {
+    return { fieldErrors: profile.errors, values: { ...echo(fd, PROFILE_FIELD_NAMES), otas: fd.getAll("otas").map(String).join(",") } };
+  }
+  await store.updateProperty(property.id, profile.value);
+  refresh();
+  return { ok: true, message: "Saved." };
+}
+
+async function setBedCountImpl(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const { store, property, user } = await requireProperty();
+  if (!(await isOwner(store, property.id, user.id))) return { error: "Only the owner can change the bed count." };
+  const beds = z.coerce.number().int().min(1).max(2000).safeParse(fd.get("beds"));
+  if (!beds.success) return { error: "Enter a whole number of beds between 1 and 2000." };
+  await store.updateProperty(property.id, { beds: beds.data });
+  refresh();
+  return { ok: true, message: `Beds set to ${beds.data}.` };
+}
+
 async function markFindingDoneImpl(findingId: string): Promise<ActionState> {
   if (typeof findingId !== "string" || findingId.length === 0 || findingId.length > 120) return { error: "Invalid fix." };
   const { store, property } = await requireProperty();
@@ -137,4 +168,12 @@ export async function recategorizeExpense(expenseId: string, category: string): 
 
 export async function changePassword(_prev: ActionState, fd: FormData): Promise<ActionState> {
   return safely("changePassword", () => changePasswordImpl(_prev, fd));
+}
+
+export async function updateProfile(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  return safely("updateProfile", () => updateProfileImpl(_prev, fd));
+}
+
+export async function setBedCount(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  return safely("setBedCount", () => setBedCountImpl(_prev, fd));
 }

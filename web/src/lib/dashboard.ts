@@ -1,4 +1,5 @@
 import { runAudit } from "./domain/audit-engine";
+import { capacityCheck, type CapacityCheck } from "./domain/capacity";
 import { costBreakdown, type CostBreakdown, type CostInputs } from "./domain/costs";
 import { laborCostCents } from "./domain/import/parsers";
 import { bookingsInWindow, profitMetrics, type ProfitMetrics } from "./domain/metrics";
@@ -6,7 +7,12 @@ import { profitActions, rankActions, reviewActions, setupActions, type DataState
 import type { AuditResult, DateRange, Finding } from "./domain/types";
 import { materializeInputs } from "./domain/costs";
 import { defaultBenchmark, type ConnectionRecord, type ImportRecord, type Property, type ReviewSnapshot, type Store, type StoredExpense } from "./data/store";
-import { chooseWindow, formatRange, monthOf, previousMonth, previousWindow } from "./period";
+import { costHistory, monthlySeries, weekdayOccupancy } from "./domain/series";
+import { nightStrip, type NightCell } from "./domain/night-strip";
+import { quietestNights, type QuietNight } from "./domain/quiet";
+import { priceFloorCents, type Guardrails } from "./domain/guardrails";
+import type { ActionRun } from "./automation/types";
+import { chooseWindow, formatRange, monthOf, previousMonth, previousWindow, utcDay } from "./period";
 
 const DAY = 86_400_000;
 
@@ -32,6 +38,26 @@ export type Dashboard = {
   connections: ConnectionRecord[];
   reviews: ReviewSnapshot[];
   hasAnyData: boolean;
+  /** Whether stored bookings need more beds than the hostel declared. */
+  capacity: CapacityCheck;
+  /** Six months of bookings and revenue, oldest first. */
+  monthly: ReturnType<typeof monthlySeries>;
+  /** Six months of the five cost lines, oldest first. */
+  costHistory: ReturnType<typeof costHistory>;
+  /** Occupancy per weekday (Sunday = 0) for the analysed window. */
+  weekday: ReturnType<typeof weekdayOccupancy>;
+  /** 31 nights: 20 before the analysed day, the day itself, and 10 after. */
+  nights: NightCell[];
+  /** The weekday with the lowest occupancy, or null with no bookings. */
+  quietestWeekday: { weekday: number; occupancy: number } | null;
+  /** The three emptiest nights in the next 30, compared with that weekday's usual level. */
+  quiet: QuietNight[];
+  /** Recent automation runs, newest first, and how many await approval. */
+  runs: ActionRun[];
+  pendingRuns: number;
+  guardrails: Guardrails;
+  /** Lowest allowed price for a dorm bed: cost per bed plus the minimum margin. */
+  floorCents: number;
 };
 
 /** Builds everything the pages show from stored data. Pure orchestration; the maths lives in the domain layer. */
@@ -42,7 +68,7 @@ export async function loadDashboard(store: Store, property: Property, now = new 
   const month = monthOf(new Date(window.end.getTime() - DAY));
   const prevMonthKey = previousMonth(month);
 
-  const [expensesAll, shifts, costInputs, prevCostInputs, imports, connections, reviews, addressed] = await Promise.all([
+  const [expensesAll, shifts, costInputs, prevCostInputs, imports, connections, reviews, addressed, allCostInputs, runs, guardrails] = await Promise.all([
     store.listExpenses(property.id, { start: prev.start, end: window.end }),
     store.listShifts(property.id, window),
     store.getCostInputs(property.id, month),
@@ -51,6 +77,9 @@ export async function loadDashboard(store: Store, property: Property, now = new 
     store.listConnections(property.id),
     store.listReviewSnapshots(property.id),
     store.addressedIds(property.id),
+    store.listCostInputs(property.id),
+    store.listRuns(property.id, 30),
+    store.getGuardrails(property.id),
   ]);
 
   const inWindow = (e: StoredExpense, w: DateRange) => e.date >= w.start && e.date < w.end;
@@ -64,6 +93,7 @@ export async function loadDashboard(store: Store, property: Property, now = new 
   const prevBreakdown = costBreakdown({ inputs: prevCostInputs, expenses: prevExpenses, occupiedBedNights: prevMetrics.occupiedBedNights });
 
   const lastDay = new Date(window.end.getTime() - DAY);
+  const weekday = weekdayOccupancy(allBookings, property.beds, window);
   const audit = runAudit(
     {
       property: { ...property, benchmark: defaultBenchmark },
@@ -119,6 +149,17 @@ export async function loadDashboard(store: Store, property: Property, now = new 
     connections,
     reviews,
     hasAnyData: dataState.hasBookings || dataState.hasBankData || breakdown.totalCents > 0,
+    capacity: capacityCheck(allBookings, property.beds),
+    monthly: monthlySeries(allBookings, 6, lastDay),
+    costHistory: costHistory(allCostInputs, 6, lastDay),
+    weekday,
+    nights: nightStrip(allBookings, property.beds, new Date(lastDay.getTime() - 20 * DAY), 31, utcDay(now)),
+    quietestWeekday: quietestWeekday(weekday, metrics.bookingsCount),
+    quiet: quietestNights(allBookings, property.beds, utcDay(now), 30, 3),
+    runs,
+    pendingRuns: runs.filter((r) => r.status === "proposed").length,
+    guardrails,
+    floorCents: priceFloorCents(breakdown.perBedNightCents, guardrails.minMarginPct),
   };
 }
 
@@ -134,3 +175,11 @@ const SETUP_ON: Record<string, Finding["page"][]> = {
 /** Every open next step that belongs on a page: its own fixes plus any setup it needs. */
 export const actionsFor = (d: Dashboard, page: Finding["page"]) =>
   d.actions.filter((a) => (a.kind === "setup" ? (SETUP_ON[a.id] ?? []).includes(page) : a.page === page));
+
+/** A weekday only counts as "quietest" when it is at least 5 points under the weekly average; otherwise the week is flat. */
+export function quietestWeekday(weekday: { weekday: number; occupancy: number }[], bookingsCount: number): { weekday: number; occupancy: number } | null {
+  if (bookingsCount <= 0 || weekday.length === 0) return null;
+  const avg = weekday.reduce((s, w) => s + w.occupancy, 0) / weekday.length;
+  const lowest = weekday.reduce((lo, w) => (w.occupancy < lo.occupancy ? w : lo), weekday[0]);
+  return avg - lowest.occupancy >= 0.05 ? lowest : null;
+}

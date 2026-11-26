@@ -29,7 +29,11 @@ async function importFileImpl(_prev: ActionState, fd: FormData): Promise<ActionS
 
   const details = out.errors.slice(0, 8).map((e) => (e.line > 0 ? `Line ${e.line}: ${e.message}` : e.message));
   if (out.errors.length > 8) details.push(`…and ${out.errors.length - 8} more.`);
-  return out.ok ? { ok: true, message: out.message, details } : { error: out.message, details };
+  const capacity =
+    out.capacity?.exceeded && out.capacity.peakDate
+      ? { peak: out.capacity.peak, peakDate: out.capacity.peakDate.toISOString().slice(0, 10), nightsOver: out.capacity.nightsOver, beds: property.beds }
+      : undefined;
+  return out.ok ? { ok: true, message: out.message, details, capacity } : { error: out.message, details };
 }
 
 export async function importFile(_prev: ActionState, fd: FormData): Promise<ActionState> {

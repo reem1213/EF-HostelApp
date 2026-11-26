@@ -45,46 +45,7 @@ async function CostsView() {
         <FixList items={actionsFor(d, "costs")} emptyText="No cost problems found. Keep your monthly costs up to date and we will watch for changes." />
       </Section>
 
-      <Section title="A. Costs" eyebrow="What you spend">
-        <div id="monthly-costs" className="scroll-mt-4">
-          <h3 className="mb-2 text-[14px] font-semibold">Monthly costs</h3>
-          <p className="mb-3 text-[13px] text-muted">Utilities, salaries, rent and the rest. Update them whenever they change; we compare each month in Reports.</p>
-          <MonthlyCostsForm month={d.month} inputs={d.costInputs} />
-        </div>
-
-        <div id="bank">
-          <h3 className="mb-2 mt-3 text-[14px] font-semibold">Bank and card charges</h3>
-          <div className="rounded-2xl border border-hairline bg-surface p-4">
-            <p className="text-[14px]">
-              {lastBank ? (
-                <>
-                  Last upload: <strong>{lastBank.filename}</strong>, {lastBank.rowsOk} charges on {lastBank.createdAt.toISOString().slice(0, 10)}.
-                </>
-              ) : (
-                "No bank summary uploaded yet."
-              )}
-            </p>
-            <p className="mt-1 text-[12.5px] text-muted">Upload a CSV from your bank or card. A live card connection comes later.</p>
-            <Link href="/connections#import" className="mt-3 inline-flex h-11 items-center justify-center rounded-xl bg-teal px-5 text-sm font-semibold text-white">
-              Upload bank summary
-            </Link>
-          </div>
-        </div>
-
-        {charges.length > 0 && (
-          <div>
-            <h3 className="mb-1 mt-3 text-[14px] font-semibold">Check the categories</h3>
-            <p className="mb-2 text-[12.5px] text-muted">Your biggest charges, sorted automatically. Correct any we got wrong and your numbers update.</p>
-            <ChargeReview rows={charges.map((e) => ({ id: e.id, date: e.date.toISOString().slice(0, 10), merchant: e.merchant, amountCents: e.amountCents, category: e.category }))} />
-          </div>
-        )}
-
-        <Notice tone="later">
-          <strong className="text-ink">Cancellations and refunds</strong> — coming later. We plan to connect refund tracking so lost bookings and chargebacks show up here.
-        </Notice>
-      </Section>
-
-      <Section title="B. Cost per bed" eyebrow="Rates">
+      <Section title="Cost per bed" eyebrow="Rates">
         {b.totalCents > 0 && d.metrics.occupiedBedNights > 0 ? (
           <>
             <div className="grid grid-cols-2 gap-3">
@@ -128,6 +89,46 @@ async function CostsView() {
           </Notice>
         )}
       </Section>
+
+      <Section title="Costs" eyebrow="What you spend">
+        <div id="monthly-costs" className="scroll-mt-4">
+          <h3 className="mb-2 text-[14px] font-semibold">Monthly costs</h3>
+          <p className="mb-3 text-[13px] text-muted">Utilities, salaries, rent and the rest. Update them whenever they change; we compare each month in Reports.</p>
+          <MonthlyCostsForm month={d.month} inputs={d.costInputs} />
+        </div>
+
+        <div id="bank">
+          <h3 className="mb-2 mt-3 text-[14px] font-semibold">Bank and card charges</h3>
+          <div className="rounded-2xl border border-hairline bg-surface p-4">
+            <p className="text-[14px]">
+              {lastBank ? (
+                <>
+                  Last upload: <strong>{lastBank.filename}</strong>, {lastBank.rowsOk} charges on {lastBank.createdAt.toISOString().slice(0, 10)}.
+                </>
+              ) : (
+                "No bank summary uploaded yet."
+              )}
+            </p>
+            <p className="mt-1 text-[12.5px] text-muted">Upload a CSV from your bank or card. A live card connection comes later.</p>
+            <Link href="/connections#import" className="mt-3 inline-flex h-11 items-center justify-center rounded-xl bg-teal px-5 text-sm font-semibold text-white">
+              Upload bank summary
+            </Link>
+          </div>
+        </div>
+
+        {charges.length > 0 && (
+          <div>
+            <h3 className="mb-1 mt-3 text-[14px] font-semibold">Check the categories</h3>
+            <p className="mb-2 text-[12.5px] text-muted">Your biggest charges, sorted automatically. Correct any we got wrong and your numbers update.</p>
+            <ChargeReview rows={charges.map((e) => ({ id: e.id, date: e.date.toISOString().slice(0, 10), merchant: e.merchant, amountCents: e.amountCents, category: e.category }))} />
+          </div>
+        )}
+
+        <Notice tone="later">
+          <strong className="text-ink">Cancellations and refunds</strong> — coming later. We plan to connect refund tracking so lost bookings and chargebacks show up here.
+        </Notice>
+      </Section>
+
     </div>
   );
 }

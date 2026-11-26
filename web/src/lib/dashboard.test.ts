@@ -66,6 +66,92 @@ describe("dashboard on the demo hostel", () => {
   });
 });
 
+describe("chart series on the dashboard", () => {
+  it("provides six months of revenue, six months of cost lines, and a weekday profile", async () => {
+    const { store, property } = await demo();
+    const d = await loadDashboard(store, property, now);
+    expect(d.monthly).toHaveLength(6);
+    expect(d.monthly.at(-1)?.month).toBe("2026-11");
+    expect(d.monthly.some((m) => m.bookings > 0)).toBe(true);
+    expect(d.costHistory).toHaveLength(6);
+    expect(d.costHistory.at(-2)?.lines.utilities).toBe(62_000);
+    expect(d.costHistory.at(-1)?.lines.utilities).toBe(70_000);
+    expect(d.weekday.map((w) => w.weekday)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+});
+
+describe("night strip on the dashboard", () => {
+  it("covers 31 nights ending 10 days after the analysed day, with today marked and later nights future", async () => {
+    const { store, property } = await demo();
+    const d = await loadDashboard(store, property, now);
+    expect(d.nights).toHaveLength(31);
+    expect(d.nights.filter((n) => n.isToday)).toHaveLength(1);
+    expect(d.nights.filter((n) => n.future)).toHaveLength(10);
+    expect(d.nights.find((n) => n.isToday)!.occupancy).toBeGreaterThan(0.5); // the busy demo hostel
+  });
+
+  it("names no quietest weekday when every weekday is about equally busy (the flat demo hostel)", async () => {
+    const { store, property } = await demo();
+    expect((await loadDashboard(store, property, now)).quietestWeekday).toBeNull();
+  });
+
+  it("names the quietest weekday when it is clearly quieter than the rest", async () => {
+    const store = new MemoryStore();
+    const property = await store.createProperty("u8", { name: "Q", beds: 10, currency: "USD", country: "US" });
+    const rows = [];
+    for (let back = 27; back >= 0; back--) {
+      const checkIn = new Date(Date.UTC(2026, 10, 24) - back * 86_400_000);
+      if (checkIn.getUTCDay() === 2) continue; // nobody ever arrives on a Tuesday
+      for (let k = 0; k < 6; k++) rows.push({ externalId: `b${back}-${k}`, guestKey: null, channel: "direct" as const, checkIn, nights: 1, revenueCents: 1000 });
+    }
+    await store.addBookings(property.id, "imp", rows);
+    const d = await loadDashboard(store, property, now);
+    expect(d.quietestWeekday).toEqual({ weekday: 2, occupancy: 0 });
+  });
+
+  it("has no quietest weekday when there are no bookings", async () => {
+    const store = new MemoryStore();
+    const property = await store.createProperty("u9", { name: "E", beds: 5, currency: "USD", country: "US" });
+    expect((await loadDashboard(store, property, now)).quietestWeekday).toBeNull();
+  });
+});
+
+describe("automation on the dashboard", () => {
+  it("exposes the guardrails, the cost-based price floor, and pending runs", async () => {
+    const { store, property } = await demo();
+    const empty = await loadDashboard(store, property, now);
+    expect(empty.guardrails).toEqual({ minMarginPct: 0.2, ceilingCents: null, maxChangePctPerDay: 0.15 });
+    // floor = ceil(cost per bed x 1.2)
+    expect(empty.floorCents).toBe(Math.ceil(empty.breakdown.perBedNightCents * 1.2 - 1e-9));
+    expect(empty.floorCents).toBeGreaterThan(empty.breakdown.perBedNightCents);
+    expect(empty.pendingRuns).toBe(0);
+
+    await store.createRun(property.id, { kind: "content_draft", title: "t", params: {}, createdBy: "demo-user" });
+    const withRun = await loadDashboard(store, property, now);
+    expect(withRun.runs).toHaveLength(1);
+    expect(withRun.pendingRuns).toBe(1);
+  });
+
+  it("uses limits the owner saved", async () => {
+    const { store, property } = await demo();
+    await store.saveGuardrails(property.id, { minMarginPct: 0.5, ceilingCents: 9000, maxChangePctPerDay: 0.1 });
+    const d = await loadDashboard(store, property, now);
+    expect(d.guardrails.minMarginPct).toBe(0.5);
+    expect(d.floorCents).toBe(Math.ceil(d.breakdown.perBedNightCents * 1.5 - 1e-9));
+  });
+});
+
+describe("capacity on the dashboard", () => {
+  it("is fine for the demo hostel and exceeded once the declared beds shrink below the peak", async () => {
+    const { store, property } = await demo();
+    expect((await loadDashboard(store, property, now)).capacity.exceeded).toBe(false);
+    const small = { ...property, beds: 10 };
+    const d = await loadDashboard(store, small, now);
+    expect(d.capacity.exceeded).toBe(true);
+    expect(d.capacity.peak).toBeGreaterThan(10);
+  });
+});
+
 describe("dashboard with no data", () => {
   it("asks for the data it needs, in order, and never shows NaN", async () => {
     const store = new MemoryStore();

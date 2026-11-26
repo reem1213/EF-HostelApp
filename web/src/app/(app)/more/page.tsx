@@ -6,9 +6,16 @@ import { ChevronRight, FileUp, PlugZap, Sparkles } from "lucide-react";
 import { signOut } from "@/app/actions/auth";
 import { PageHeader, Section } from "@/components/page-kit";
 import { PasswordForm } from "@/components/password-form";
+import { GuardrailsForm } from "@/components/guardrails-form";
+import { ProfileForm } from "@/components/profile-form";
+import { TeamPanel } from "@/components/team-panel";
+import { maxSeats } from "@/lib/domain/team";
 import { PageSkeleton } from "@/components/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { dollarsExact } from "@/lib/domain/money";
+import { priceFloorCents } from "@/lib/domain/guardrails";
+import { loadDashboard } from "@/lib/dashboard";
 import { requireProperty } from "@/lib/session";
 
 export default function MorePage() {
@@ -22,7 +29,9 @@ export default function MorePage() {
 async function MoreView() {
   await connection();
   const { store, property, user, demo } = await requireProperty();
-  const connections = await store.listConnections(property.id);
+  const [connections, members, invites, guardrails] = await Promise.all([store.listConnections(property.id), store.listMembers(property.id), store.listInvites(property.id), store.getGuardrails(property.id)]);
+  const dash = await loadDashboard(store, property);
+  const isOwner = members.some((m) => m.userId === user.id && m.role === "owner");
 
   return (
     <div className="flex flex-col gap-7">
@@ -44,6 +53,20 @@ async function MoreView() {
           </div>
           <p className="mt-3 text-[13.5px] text-muted">Cost tracking, leak alerts and prioritised fixes.</p>
         </div>
+      </Section>
+
+      <Section title="Where guests find you">
+        <ProfileForm
+          defaults={{ otas: property.otas, website: property.website, socials: property.socials, postalAddress: property.postalAddress, replyToEmail: property.replyToEmail }}
+        />
+      </Section>
+
+      <Section title="Price change limits">
+        <GuardrailsForm guardrails={guardrails} floorLabel={dollarsExact(priceFloorCents(dash.breakdown.perBedNightCents, guardrails.minMarginPct))} isOwner={isOwner} />
+      </Section>
+
+      <Section title="Team">
+        <TeamPanel members={members} invites={invites} plan={property.plan} seats={maxSeats(property.plan)} isOwner={isOwner} meId={user.id} />
       </Section>
 
       <Section title="Data">

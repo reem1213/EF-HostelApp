@@ -67,13 +67,13 @@ export function ConnectCard({ provider, connection, secureStorageReady }: { prov
 
       {open && (
         <div className="mt-3 border-t border-hairline pt-3">
-          <p className="text-[12px] font-semibold uppercase tracking-wider text-teal">Where to find these</p>
+          <p className="text-[13px] font-semibold text-teal">Where to find these</p>
           <ol className="mt-1.5 list-decimal space-y-1 pl-5 text-[13px]">
             {provider.howTo.map((s) => (
               <li key={s}>{s}</li>
             ))}
           </ol>
-          <p className="mt-3 text-[12px] font-semibold uppercase tracking-wider text-teal">What we will pull</p>
+          <p className="mt-3 text-[13px] font-semibold text-teal">What we will pull</p>
           <p className="mt-1 text-[13px] text-muted">{provider.syncs.join(" · ")}</p>
 
           {!secureStorageReady && (

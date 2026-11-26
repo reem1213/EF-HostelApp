@@ -2,6 +2,14 @@ import type { CostInputs } from "../domain/costs";
 import type { BookingRow, ExpenseRow, ImportKind, RowError, ShiftRow } from "../domain/import/parsers";
 import type { Benchmark, Booking, DateRange, Expense, ExpenseCategory } from "../domain/types";
 import type { ConnectionStatus, ProviderId } from "../integrations/providers";
+import type { Plan } from "../domain/team";
+import type { Guardrails } from "../domain/guardrails";
+import type { ActionRun, NewRun, RunPatch } from "../automation/types";
+import type { Competitor, RateSnapshot } from "../domain/rates";
+import type { TicketStatus } from "../domain/tickets";
+import type { OutboxRow } from "../email/send";
+import type { OtaSettings } from "../domain/ota";
+import type { Socials } from "../domain/profile";
 
 export type Property = {
   id: string;
@@ -9,7 +17,29 @@ export type Property = {
   beds: number;
   currency: string;
   country: string;
+  plan: Plan;
+  /** OTA ids the hostel sells on (see OTA_OPTIONS). */
+  otas: string[];
+  website: string | null;
+  socials: Socials;
+  /** Required on every marketing email. */
+  postalAddress: string;
+  replyToEmail: string;
+  otaSettings: OtaSettings;
 };
+
+/** What a new property needs; the profile extras are optional. */
+export type NewProperty = Pick<Property, "name" | "beds" | "currency" | "country"> &
+  Partial<Pick<Property, "otas" | "website" | "socials" | "postalAddress" | "replyToEmail" | "otaSettings">>;
+
+export type PropertyPatch = Partial<Pick<Property, "name" | "beds" | "country" | "otas" | "website" | "socials" | "postalAddress" | "replyToEmail" | "otaSettings">>;
+
+export type Ticket = { otaId: string; status: TicketStatus; subject: string; body: string; createdAt: Date; submittedAt: Date | null; answeredAt: Date | null };
+
+export type OutboxEntry = OutboxRow & { createdAt: Date };
+export type Campaign = { template: string; subject: string; audience: number; sent: number; skipped: number; mode: "sent" | "outbox"; createdBy: string; createdAt: Date };
+
+export type Member = { userId: string; email: string; role: "owner" | "manager" };
 
 /** Targets used to judge a property. Placeholder industry assumptions until real benchmarking exists. */
 export const defaultBenchmark: Benchmark = {
@@ -57,12 +87,25 @@ export type ReviewSnapshot = {
 
 export interface Store {
   // property
+  /** The property this user belongs to (as owner or manager), if any. */
   getProperty(userId: string): Promise<Property | null>;
-  createProperty(userId: string, p: Omit<Property, "id">): Promise<Property>;
+  createProperty(userId: string, p: NewProperty, ownerEmail?: string): Promise<Property>;
+  updateProperty(propertyId: string, patch: PropertyPatch): Promise<void>;
+
+  // team
+  listMembers(propertyId: string): Promise<Member[]>;
+  listInvites(propertyId: string): Promise<string[]>;
+  invite(propertyId: string, email: string, invitedBy: string): Promise<void>;
+  revokeInvite(propertyId: string, email: string): Promise<void>;
+  removeMember(propertyId: string, userId: string): Promise<void>;
+  /** Turns a pending invite for this email into membership (if seats allow) and returns the property joined. */
+  acceptInvitesFor(userId: string, email: string): Promise<Property | null>;
 
   // monthly cost inputs (forms)
   getCostInputs(propertyId: string, month: string): Promise<CostInputs | null>;
   saveCostInputs(propertyId: string, inputs: CostInputs): Promise<void>;
+  /** Every month the manager has entered costs for. */
+  listCostInputs(propertyId: string): Promise<CostInputs[]>;
 
   // imported / synced data
   listBookings(propertyId: string): Promise<Booking[]>;
@@ -86,6 +129,43 @@ export interface Store {
   ): Promise<void>;
   getConnectionSecret(propertyId: string, provider: ProviderId): Promise<string | null>;
   deleteConnection(propertyId: string, provider: ProviderId): Promise<void>;
+
+  // automation runs (the audit log of every automated change)
+  createRun(propertyId: string, input: NewRun): Promise<ActionRun>;
+  getRun(propertyId: string, id: string): Promise<ActionRun | null>;
+  /** Atomically moves a "proposed" run to "approved". Returns null when it was no longer proposed. */
+  claimRun(propertyId: string, id: string, userId: string): Promise<ActionRun | null>;
+  updateRun(propertyId: string, id: string, patch: RunPatch): Promise<ActionRun>;
+  listRuns(propertyId: string, limit?: number): Promise<ActionRun[]>;
+  getGuardrails(propertyId: string): Promise<Guardrails>;
+  saveGuardrails(propertyId: string, g: Guardrails): Promise<void>;
+
+  // nightly rates and the competitor set
+  saveRates(propertyId: string, snaps: RateSnapshot[]): Promise<void>;
+  /** Rates for nights in [start, end). */
+  listRates(propertyId: string, range: DateRange): Promise<RateSnapshot[]>;
+  /** Removes the rates the owner set by hand for one night/channel/room, revealing the underlying source. */
+  deleteManualRate(propertyId: string, key: { stayDate: Date; channel: string; roomType: string }): Promise<void>;
+  listCompetitors(propertyId: string): Promise<Competitor[]>;
+  /** Up to 8 per property, names unique ignoring case. Throws a readable error otherwise. */
+  addCompetitor(propertyId: string, name: string): Promise<Competitor>;
+  /** Also removes that competitor's rates. */
+  removeCompetitor(propertyId: string, id: string): Promise<void>;
+
+  // requests to booking sites (one per site)
+  listTickets(propertyId: string): Promise<Ticket[]>;
+  /** Creates or updates the ticket for a booking site. Submitted/answered dates are stamped the first time the status is reached. */
+  upsertTicket(propertyId: string, t: { otaId: string; status: TicketStatus; subject: string; body: string }): Promise<void>;
+
+  // repeat-guest email: who must not be written to, what was sent (masked), and past campaigns
+  listSuppressions(propertyId: string): Promise<string[]>;
+  /** Idempotent. Addresses are stored lowercase. */
+  addSuppression(propertyId: string, email: string): Promise<void>;
+  addOutbox(propertyId: string, rows: OutboxRow[]): Promise<void>;
+  /** Newest first. Addresses are masked; full addresses are never shown in the UI. */
+  listOutbox(propertyId: string, limit?: number): Promise<OutboxEntry[]>;
+  recordCampaign(propertyId: string, c: Omit<Campaign, "createdAt">): Promise<void>;
+  listCampaigns(propertyId: string, limit?: number): Promise<Campaign[]>;
 
   // progress on fixes
   addressedIds(propertyId: string): Promise<Set<string>>;
