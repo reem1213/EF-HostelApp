@@ -5,12 +5,16 @@ import { ChevronRight, Zap } from "lucide-react";
 
 import { CapacityWarning } from "@/components/capacity-warning";
 import { Chat } from "@/components/chat";
+import { QuietNights, type QuietView } from "@/components/quiet-nights";
 import { NightStrip } from "@/components/night-strip";
 import { FixCard } from "@/components/fix-card";
 import { PageSkeleton } from "@/components/skeleton";
 import { Section, Stat } from "@/components/page-kit";
 import { loadDashboard } from "@/lib/dashboard";
 import { dollars, dollarsExact } from "@/lib/domain/money";
+import { suggestPrice } from "@/lib/domain/quiet";
+import { currentSnapshot } from "@/lib/domain/rates";
+import { utcDay } from "@/lib/period";
 import { requireProperty } from "@/lib/session";
 
 export default function HomePage() {
@@ -34,6 +38,25 @@ async function HomeView() {
   const more = d.actions.slice(1, 4);
   const biggest = d.audit.openLeaks[0] ?? null;
   const perBed = d.breakdown.perBedNightCents;
+
+  // Suggested prices come from code, cut by the occupancy gap and held to the owner's limits. They need a loaded direct rate.
+  const today = utcDay(new Date());
+  const rates = d.quiet.length > 0 ? await store.listRates(property.id, { start: today, end: new Date(today.getTime() + 30 * 86_400_000) }) : [];
+  const quiet: QuietView[] = d.quiet.map((n) => {
+    const day = n.date.getTime();
+    const cur = currentSnapshot(rates.filter((r) => r.channel === "direct" && r.competitorId === null && r.stayDate.getTime() === day))?.priceCents ?? null;
+    const sug = cur === null ? null : suggestPrice({ currentCents: cur, gap: n.gap, floorCents: d.floorCents, ceilingCents: d.guardrails.ceilingCents, maxChangePct: d.guardrails.maxChangePctPerDay });
+    const hasSuggestion = cur !== null && sug !== null && sug !== cur;
+    return {
+      date: n.date.toISOString().slice(0, 10),
+      label: n.date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" }),
+      occupancyPct: Math.round(n.occupancy * 100),
+      usualPct: Math.round(n.weekdayAvg * 100),
+      current: cur === null ? null : dollarsExact(cur),
+      suggested: hasSuggestion ? dollarsExact(sug) : null,
+      suggestedRaw: hasSuggestion ? (sug / 100).toFixed(2) : null,
+    };
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -82,6 +105,12 @@ async function HomeView() {
           </div>
         )}
       </Section>
+
+      {quiet.length > 0 && (
+        <Section title="Quietest nights coming up">
+          <QuietNights nights={quiet} />
+        </Section>
+      )}
 
       <Section title="At a glance">
         <div className="grid grid-cols-2 gap-3">

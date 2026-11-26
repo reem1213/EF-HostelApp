@@ -9,6 +9,7 @@ import { materializeInputs } from "./domain/costs";
 import { defaultBenchmark, type ConnectionRecord, type ImportRecord, type Property, type ReviewSnapshot, type Store, type StoredExpense } from "./data/store";
 import { costHistory, monthlySeries, weekdayOccupancy } from "./domain/series";
 import { nightStrip, type NightCell } from "./domain/night-strip";
+import { quietestNights, type QuietNight } from "./domain/quiet";
 import { priceFloorCents, type Guardrails } from "./domain/guardrails";
 import type { ActionRun } from "./automation/types";
 import { chooseWindow, formatRange, monthOf, previousMonth, previousWindow, utcDay } from "./period";
@@ -49,6 +50,8 @@ export type Dashboard = {
   nights: NightCell[];
   /** The weekday with the lowest occupancy, or null with no bookings. */
   quietestWeekday: { weekday: number; occupancy: number } | null;
+  /** The three emptiest nights in the next 30, compared with that weekday's usual level. */
+  quiet: QuietNight[];
   /** Recent automation runs, newest first, and how many await approval. */
   runs: ActionRun[];
   pendingRuns: number;
@@ -152,6 +155,7 @@ export async function loadDashboard(store: Store, property: Property, now = new 
     weekday,
     nights: nightStrip(allBookings, property.beds, new Date(lastDay.getTime() - 20 * DAY), 31, utcDay(now)),
     quietestWeekday: quietestWeekday(weekday, metrics.bookingsCount),
+    quiet: quietestNights(allBookings, property.beds, utcDay(now), 30, 3),
     runs,
     pendingRuns: runs.filter((r) => r.status === "proposed").length,
     guardrails,
