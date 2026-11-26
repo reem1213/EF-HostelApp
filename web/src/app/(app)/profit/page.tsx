@@ -2,11 +2,14 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { connection } from "next/server";
 
+import { DirectSlider } from "@/components/direct-slider";
 import { FixList } from "@/components/fix-card";
 import { Notice, PageHeader, Section, Stat, signedPct } from "@/components/page-kit";
 import { PageSkeleton } from "@/components/skeleton";
 import { actionsFor, loadDashboard } from "@/lib/dashboard";
 import { pctChange } from "@/lib/domain/metrics";
+import { resolveOta } from "@/lib/domain/ota";
+import { blendedCommission, DEFAULT_DIRECT_FEE } from "@/lib/domain/ota-economics";
 import { dollars, dollarsExact } from "@/lib/domain/money";
 import { DIRECT_BOOKING_PLAN } from "@/lib/domain/next-steps";
 import { requireProperty } from "@/lib/session";
@@ -33,6 +36,9 @@ async function ProfitView() {
   const bookingsChange = pctChange(m.bookingsCount, prev.bookingsCount);
   const occChange = prev.occupancyRate > 0 ? m.occupancyRate - prev.occupancyRate : null;
   const other = Math.max(0, 1 - m.directShare - m.otaShare);
+  // Bookings record the channel, not which OTA, so use the average commission of the OTAs the hostel selected.
+  const otaCommission = blendedCommission(Object.fromEntries(property.otas.map((id) => [id, 1])), property.otaSettings);
+  const otaNames = property.otas.map((id) => resolveOta(id, property.otaSettings).name);
 
   return (
     <div className="flex flex-col gap-7">
@@ -80,6 +86,7 @@ async function ProfitView() {
                 {other > 0.01 && <li className="flex justify-between"><span><span className="mr-2 inline-block size-2 rounded-full bg-hairline" />Other</span><strong>{pct(other)}</strong></li>}
               </ul>
             </div>
+            <DirectSlider revenueCents={m.revenueCents} currentDirectShare={m.directShare} otaCommission={otaCommission} directFee={DEFAULT_DIRECT_FEE} otaNames={otaNames} />
           </Section>
         </>
       ) : (
