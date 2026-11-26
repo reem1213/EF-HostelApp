@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { Property, Store } from "./data/store";
+import { capacityCheck, type CapacityCheck } from "./domain/capacity";
 import {
   MAX_IMPORT_BYTES,
   parseBankCsv,
@@ -21,6 +22,8 @@ export type ImportOutcome = {
   errors: RowError[];
   /** True when this exact file was imported before and nothing was changed. */
   duplicate?: boolean;
+  /** For bookings files: whether the stored bookings need more beds than the hostel declared. */
+  capacity?: CapacityCheck;
 };
 
 /** US-style dates are month first; most other countries are day first. */
@@ -59,6 +62,7 @@ export async function runImport(args: {
   let rowsOk = 0;
   let errors: RowError[] = [];
   let summary = "";
+  let capacity: CapacityCheck | undefined;
 
   // Parse first, and only write when there is something valid to write.
   switch (kind) {
@@ -70,6 +74,7 @@ export async function runImport(args: {
         const { inserted, updated } = await store.addBookings(property.id, imp.id, r.rows);
         rowsOk = r.rows.length;
         summary = `Imported ${inserted} new and updated ${updated} existing bookings.`;
+        capacity = capacityCheck(await store.listBookings(property.id), property.beds);
       }
       break;
     }
@@ -114,5 +119,6 @@ export async function runImport(args: {
     rowsOk,
     rowsFailed: errors.length,
     errors,
+    capacity,
   };
 }

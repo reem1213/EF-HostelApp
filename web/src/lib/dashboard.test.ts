@@ -66,6 +66,17 @@ describe("dashboard on the demo hostel", () => {
   });
 });
 
+describe("capacity on the dashboard", () => {
+  it("is fine for the demo hostel and exceeded once the declared beds shrink below the peak", async () => {
+    const { store, property } = await demo();
+    expect((await loadDashboard(store, property, now)).capacity.exceeded).toBe(false);
+    const small = { ...property, beds: 10 };
+    const d = await loadDashboard(store, small, now);
+    expect(d.capacity.exceeded).toBe(true);
+    expect(d.capacity.peak).toBeGreaterThan(10);
+  });
+});
+
 describe("dashboard with no data", () => {
   it("asks for the data it needs, in order, and never shows NaN", async () => {
     const store = new MemoryStore();

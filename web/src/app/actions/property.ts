@@ -98,6 +98,15 @@ async function updateProfileImpl(_prev: ActionState, fd: FormData): Promise<Acti
   return { ok: true, message: "Saved." };
 }
 
+async function setBedCountImpl(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const { store, property } = await requireProperty();
+  const beds = z.coerce.number().int().min(1).max(2000).safeParse(fd.get("beds"));
+  if (!beds.success) return { error: "Enter a whole number of beds between 1 and 2000." };
+  await store.updateProperty(property.id, { beds: beds.data });
+  refresh();
+  return { ok: true, message: `Beds set to ${beds.data}.` };
+}
+
 async function markFindingDoneImpl(findingId: string): Promise<ActionState> {
   if (typeof findingId !== "string" || findingId.length === 0 || findingId.length > 120) return { error: "Invalid fix." };
   const { store, property } = await requireProperty();
@@ -157,4 +166,8 @@ export async function changePassword(_prev: ActionState, fd: FormData): Promise<
 
 export async function updateProfile(_prev: ActionState, fd: FormData): Promise<ActionState> {
   return safely("updateProfile", () => updateProfileImpl(_prev, fd));
+}
+
+export async function setBedCount(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  return safely("setBedCount", () => setBedCountImpl(_prev, fd));
 }

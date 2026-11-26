@@ -1,4 +1,5 @@
 import { runAudit } from "./domain/audit-engine";
+import { capacityCheck, type CapacityCheck } from "./domain/capacity";
 import { costBreakdown, type CostBreakdown, type CostInputs } from "./domain/costs";
 import { laborCostCents } from "./domain/import/parsers";
 import { bookingsInWindow, profitMetrics, type ProfitMetrics } from "./domain/metrics";
@@ -32,6 +33,8 @@ export type Dashboard = {
   connections: ConnectionRecord[];
   reviews: ReviewSnapshot[];
   hasAnyData: boolean;
+  /** Whether stored bookings need more beds than the hostel declared. */
+  capacity: CapacityCheck;
 };
 
 /** Builds everything the pages show from stored data. Pure orchestration; the maths lives in the domain layer. */
@@ -119,6 +122,7 @@ export async function loadDashboard(store: Store, property: Property, now = new 
     connections,
     reviews,
     hasAnyData: dataState.hasBookings || dataState.hasBankData || breakdown.totalCents > 0,
+    capacity: capacityCheck(allBookings, property.beds),
   };
 }
 

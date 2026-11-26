@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { ChevronRight } from "lucide-react";
 
+import { CapacityWarning } from "@/components/capacity-warning";
 import { Chat } from "@/components/chat";
 import { FixCard } from "@/components/fix-card";
 import { PageSkeleton } from "@/components/skeleton";
@@ -38,6 +39,12 @@ async function HomeView() {
         <h1 className="text-[16px] font-semibold">{property.name}</h1>
         <p className="text-[12.5px] text-muted">{d.hasAnyData ? `Based on ${d.windowLabel}` : "Add your data to get started"}</p>
       </header>
+
+      {d.capacity.exceeded && d.capacity.peakDate && (
+        <CapacityWarning
+          info={{ peak: d.capacity.peak, peakDate: d.capacity.peakDate.toISOString().slice(0, 10), nightsOver: d.capacity.nightsOver, beds: property.beds }}
+        />
+      )}
 
       <Chat />
 

@@ -6,6 +6,7 @@ import { Download, Upload } from "lucide-react";
 import { importFile } from "@/app/actions/imports";
 import { idle } from "@/app/actions/types";
 import { Button } from "@/components/ui/button";
+import { CapacityWarning } from "@/components/capacity-warning";
 import { Field, FormMessage, Select } from "@/components/ui/input";
 
 export type ImportKindInfo = { kind: string; label: string; hint: string; columns: string; template: string };
@@ -51,6 +52,7 @@ export function ImportForm({ kinds, initialKind = "bookings" }: { kinds: ImportK
       </Field>
 
       <FormMessage {...state} />
+      {state.capacity && <CapacityWarning info={state.capacity} />}
       <Button type="submit" disabled={pending}>
         <Upload className="size-4" aria-hidden />
         {pending ? "Importing…" : "Import file"}
