@@ -80,6 +80,42 @@ describe("chart series on the dashboard", () => {
   });
 });
 
+describe("night strip on the dashboard", () => {
+  it("covers 31 nights ending 10 days after the analysed day, with today marked and later nights future", async () => {
+    const { store, property } = await demo();
+    const d = await loadDashboard(store, property, now);
+    expect(d.nights).toHaveLength(31);
+    expect(d.nights.filter((n) => n.isToday)).toHaveLength(1);
+    expect(d.nights.filter((n) => n.future)).toHaveLength(10);
+    expect(d.nights.find((n) => n.isToday)!.occupancy).toBeGreaterThan(0.5); // the busy demo hostel
+  });
+
+  it("names no quietest weekday when every weekday is about equally busy (the flat demo hostel)", async () => {
+    const { store, property } = await demo();
+    expect((await loadDashboard(store, property, now)).quietestWeekday).toBeNull();
+  });
+
+  it("names the quietest weekday when it is clearly quieter than the rest", async () => {
+    const store = new MemoryStore();
+    const property = await store.createProperty("u8", { name: "Q", beds: 10, currency: "USD", country: "US" });
+    const rows = [];
+    for (let back = 27; back >= 0; back--) {
+      const checkIn = new Date(Date.UTC(2026, 10, 24) - back * 86_400_000);
+      if (checkIn.getUTCDay() === 2) continue; // nobody ever arrives on a Tuesday
+      for (let k = 0; k < 6; k++) rows.push({ externalId: `b${back}-${k}`, guestKey: null, channel: "direct" as const, checkIn, nights: 1, revenueCents: 1000 });
+    }
+    await store.addBookings(property.id, "imp", rows);
+    const d = await loadDashboard(store, property, now);
+    expect(d.quietestWeekday).toEqual({ weekday: 2, occupancy: 0 });
+  });
+
+  it("has no quietest weekday when there are no bookings", async () => {
+    const store = new MemoryStore();
+    const property = await store.createProperty("u9", { name: "E", beds: 5, currency: "USD", country: "US" });
+    expect((await loadDashboard(store, property, now)).quietestWeekday).toBeNull();
+  });
+});
+
 describe("capacity on the dashboard", () => {
   it("is fine for the demo hostel and exceeded once the declared beds shrink below the peak", async () => {
     const { store, property } = await demo();

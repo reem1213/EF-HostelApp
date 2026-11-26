@@ -40,7 +40,7 @@ async function ConnectionsView() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Connections" subtitle="Bring your data in. Connect a system to keep it updated automatically, or upload files." />
+      <PageHeader title="Connections" trail={[{ label: "More", href: "/more" }, { label: "Connections", href: "/connections" }]} subtitle="Bring your data in. Connect a system to keep it updated automatically, or upload files." />
 
       <Section title="Connect your PMS" eyebrow="Automatic">
         <p className="text-[13px] text-muted">A live connection keeps bookings, occupancy and rates up to date without any uploads.</p>

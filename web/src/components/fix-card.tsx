@@ -61,7 +61,7 @@ export function FixCard({ finding, defaultOpen = false, className }: { finding: 
       {open && (
         <div className="border-t border-hairline px-4 pb-4 pt-3">
           <p className="text-[13.5px] leading-relaxed text-muted">{finding.detail}</p>
-          <p className="mt-3 text-[12px] font-semibold uppercase tracking-wider text-teal">How to fix it</p>
+          <p className="mt-3 text-[13px] font-semibold text-teal">How to fix it</p>
           <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-[14px] leading-snug">
             {finding.steps.map((s) => (
               <li key={s}>{s}</li>

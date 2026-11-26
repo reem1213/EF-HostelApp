@@ -67,12 +67,12 @@ export function Chat() {
   }
 
   return (
-    <section aria-label="Ask HostelPulse" className="rounded-[18px] bg-dark p-4 text-dark-text">
+    <section aria-label="Ask HostelPulse" className="rounded-2xl border border-hairline bg-surface p-4">
       <div className="flex items-center gap-2">
-        <Sparkles className="size-4 text-gold" aria-hidden />
+        <Sparkles className="size-4 text-teal" aria-hidden />
         <h2 className="text-[15px] font-semibold">Ask HostelPulse</h2>
       </div>
-      <p className="mt-1 text-[12.5px] opacity-80">Ask anything about your costs, bookings or what to fix. Answers use your own numbers.</p>
+      <p className="mt-1 text-[12.5px] text-muted">Ask anything about your costs, bookings or what to fix. Answers use your own numbers.</p>
 
       {messages.length > 0 && (
         <div className="mt-3 flex max-h-72 flex-col gap-2 overflow-y-auto pr-1" aria-live="polite">
@@ -81,7 +81,7 @@ export function Chat() {
               key={i}
               className={cn(
                 "max-w-[92%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-[14px] leading-relaxed",
-                m.role === "user" ? "self-end bg-teal text-white" : "self-start bg-white/10",
+                m.role === "user" ? "self-end bg-teal text-white" : "self-start bg-bg text-ink",
               )}
             >
               {m.content || (busy && i === messages.length - 1 ? <span className="opacity-60">Thinking…</span> : null)}
@@ -98,7 +98,7 @@ export function Chat() {
               key={s}
               type="button"
               onClick={() => send(s)}
-              className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[12.5px] hover:bg-white/10"
+              className="rounded-full border border-hairline bg-bg px-3 py-1.5 text-[12.5px] hover:bg-teal-soft"
             >
               {s}
             </button>
@@ -107,7 +107,7 @@ export function Chat() {
       )}
 
       <form
-        className="mt-3 flex items-center gap-2 rounded-2xl bg-white/10 p-1.5 pl-3.5"
+        className="mt-3 flex items-center gap-2 rounded-2xl bg-bg p-1.5 pl-3.5"
         onSubmit={(e) => {
           e.preventDefault();
           void send(input);
@@ -123,13 +123,13 @@ export function Chat() {
           maxLength={2000}
           autoComplete="off"
           placeholder="e.g. Where am I losing money?"
-          className="min-w-0 flex-1 bg-transparent text-[15px] text-white placeholder:text-white/50 focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent text-[15px] text-ink placeholder:text-muted/70 focus:outline-none"
         />
         <button
           type="submit"
           disabled={busy || !input.trim()}
           aria-label="Send"
-          className="grid size-9 shrink-0 place-items-center rounded-xl bg-gold text-dark disabled:opacity-40"
+          className="grid size-9 shrink-0 place-items-center rounded-xl bg-teal text-white disabled:opacity-40"
         >
           <ArrowUp className="size-5" aria-hidden />
         </button>

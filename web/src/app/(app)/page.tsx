@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 
 import { CapacityWarning } from "@/components/capacity-warning";
 import { Chat } from "@/components/chat";
+import { NightStrip } from "@/components/night-strip";
 import { FixCard } from "@/components/fix-card";
 import { PageSkeleton } from "@/components/skeleton";
 import { Section, Stat } from "@/components/page-kit";
@@ -21,6 +22,7 @@ export default function HomePage() {
   );
 }
 
+const WEEKDAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const PAGE_PATH = { costs: "/costs", profit: "/profit", reports: "/reports", setup: "/connections", home: "/" } as const;
 
 async function HomeView() {
@@ -35,10 +37,26 @@ async function HomeView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="text-center">
-        <h1 className="text-[16px] font-semibold">{property.name}</h1>
-        <p className="text-[12.5px] text-muted">{d.hasAnyData ? `Based on ${d.windowLabel}` : "Add your data to get started"}</p>
-      </header>
+      <section className="rounded-[22px] bg-dark p-5 text-dark-text" aria-label="Your nights">
+        <p className="text-[13px] text-dark-text/75">
+          {property.name}
+          {d.hasAnyData ? ` · ${d.windowLabel}` : ""}
+        </p>
+        <h1 className="mt-1.5 font-serif text-[27px] font-semibold leading-[1.1] text-white">
+          {d.quietestWeekday
+            ? `${WEEKDAYS_LONG[d.quietestWeekday.weekday]}s are your quietest nights, ${Math.round(d.quietestWeekday.occupancy * 100)}% full.`
+            : d.metrics.bookingsCount > 0
+              ? `You were ${Math.round(d.metrics.occupancyRate * 100)}% full over the last 30 days.`
+              : "Add your bookings to see your nights."}
+        </h1>
+        <div className="mt-6">
+          <NightStrip
+            tone="dark"
+            label="Occupancy by night, 20 nights back and 10 ahead"
+            cells={d.nights.map((n) => ({ date: n.date.toISOString(), occupancy: n.occupancy, future: n.future, isToday: n.isToday }))}
+          />
+        </div>
+      </section>
 
       {d.capacity.exceeded && d.capacity.peakDate && (
         <CapacityWarning
