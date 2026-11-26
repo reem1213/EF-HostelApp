@@ -23,9 +23,12 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    user = (await supabase.auth.getUser()).data.user;
+  } catch (e) {
+    console.error("[proxy] could not verify the user", e);
+  }
 
   const path = request.nextUrl.pathname;
   const isAuthPage = path === "/login" || path === "/signup";

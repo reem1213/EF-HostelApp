@@ -6,6 +6,7 @@ import { isProviderId, PROVIDERS, splitFields, verifyConnection } from "@/lib/in
 import { encryptCredentials, encryptionConfigured, maskSecret } from "@/lib/security/credentials";
 import { echo, fieldErrors } from "@/lib/forms";
 import { requireProperty } from "@/lib/session";
+import { safely } from "./safe";
 import type { ActionState } from "./types";
 
 /**
@@ -13,7 +14,7 @@ import type { ActionState } from "./types";
  * key that only exists in the server environment, and only a masked preview is
  * ever stored in the clear or returned to the browser.
  */
-export async function connectProvider(_prev: ActionState, fd: FormData): Promise<ActionState> {
+async function connectProviderImpl(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const { store, property } = await requireProperty();
 
   const provider = String(fd.get("provider") ?? "");
@@ -45,10 +46,18 @@ export async function connectProvider(_prev: ActionState, fd: FormData): Promise
   return { ok: true, message: `${def.name}: ${check.message}` };
 }
 
-export async function disconnectProvider(provider: string): Promise<ActionState> {
+async function disconnectProviderImpl(provider: string): Promise<ActionState> {
   const { store, property } = await requireProperty();
   if (!isProviderId(provider)) return { error: "Unknown system." };
   await store.deleteConnection(property.id, provider);
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+export async function connectProvider(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  return safely("connectProvider", () => connectProviderImpl(_prev, fd));
+}
+
+export async function disconnectProvider(provider: string): Promise<ActionState> {
+  return safely("disconnectProvider", () => disconnectProviderImpl(provider));
 }

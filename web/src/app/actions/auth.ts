@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { echo, fieldErrors } from "@/lib/forms";
 import { supabaseConfigured, supabaseServer } from "@/lib/supabase/server";
+import { safely } from "./safe";
 import type { ActionState } from "./types";
 
 const credentials = z.object({
@@ -23,7 +24,7 @@ async function siteOrigin(): Promise<string> {
   return `${proto}://${host}`;
 }
 
-export async function signUp(_prev: ActionState, fd: FormData): Promise<ActionState> {
+async function signUpImpl(_prev: ActionState, fd: FormData): Promise<ActionState> {
   if (!supabaseConfigured()) return { error: NOT_CONFIGURED };
   const parsed = credentials.safeParse({ email: fd.get("email"), password: fd.get("password") });
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error), values: echo(fd, ["email"]) };
@@ -39,7 +40,7 @@ export async function signUp(_prev: ActionState, fd: FormData): Promise<ActionSt
   redirect("/onboarding");
 }
 
-export async function signIn(_prev: ActionState, fd: FormData): Promise<ActionState> {
+async function signInImpl(_prev: ActionState, fd: FormData): Promise<ActionState> {
   if (!supabaseConfigured()) return { error: NOT_CONFIGURED };
   const parsed = credentials.safeParse({ email: fd.get("email"), password: fd.get("password") });
   // Do not reveal which part was wrong.
@@ -51,7 +52,7 @@ export async function signIn(_prev: ActionState, fd: FormData): Promise<ActionSt
   redirect("/");
 }
 
-export async function requestPasswordReset(_prev: ActionState, fd: FormData): Promise<ActionState> {
+async function requestPasswordResetImpl(_prev: ActionState, fd: FormData): Promise<ActionState> {
   if (!supabaseConfigured()) return { error: NOT_CONFIGURED };
   const email = z.email().safeParse(String(fd.get("email") ?? "").trim().toLowerCase());
   if (!email.success) return { fieldErrors: { email: "Enter a valid email address" } };
@@ -67,4 +68,16 @@ export async function signOut() {
     await supabase.auth.signOut();
   }
   redirect("/login");
+}
+
+export async function signUp(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  return safely("signUp", () => signUpImpl(_prev, fd));
+}
+
+export async function signIn(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  return safely("signIn", () => signInImpl(_prev, fd));
+}
+
+export async function requestPasswordReset(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  return safely("requestPasswordReset", () => requestPasswordResetImpl(_prev, fd));
 }
