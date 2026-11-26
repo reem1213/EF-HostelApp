@@ -101,8 +101,8 @@ async function ProfitView() {
 
       <Section title="Win more direct bookings" eyebrow="Plan">
         <p className="text-[13px] text-muted">Every booking that comes direct skips the booking-site commission. This is the plan, in order.</p>
-        <Link href="/profit/direct/rates" className="rounded-2xl border border-hairline bg-surface px-4 py-3.5 text-[15px] font-semibold text-teal">
-          See nightly prices on every site
+        <Link href="/profit/direct" className="rounded-2xl border border-hairline bg-surface px-4 py-3.5 text-[15px] font-semibold text-teal">
+          Open the direct-booking hub
         </Link>
         <div className="flex flex-col gap-2">
           {DIRECT_BOOKING_PLAN.map((block, i) => (
