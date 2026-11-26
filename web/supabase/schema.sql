@@ -159,3 +159,20 @@ begin
       t);
   end loop;
 end $$;
+
+-- Let signed-in users reach these tables through the API. Newer Supabase projects
+-- do not grant this automatically, which shows up as "permission denied for table".
+-- Row-level security above still limits every user to their own rows. Signed-out
+-- visitors (the anon role) have no policy, so they can read and write nothing.
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on
+  public.properties,
+  public.cost_inputs,
+  public.imports,
+  public.bookings,
+  public.expenses,
+  public.shifts,
+  public.connections,
+  public.finding_actions,
+  public.review_snapshots
+to authenticated;
