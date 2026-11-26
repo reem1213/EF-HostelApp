@@ -86,9 +86,14 @@ async function saveReviewImpl(_prev: ActionState, fd: FormData): Promise<ActionS
   return { ok: true, message: "Saved. Your next steps have been updated." };
 }
 
+async function isOwner(store: { listMembers(id: string): Promise<{ userId: string; role: string }[]> }, propertyId: string, userId: string) {
+  return (await store.listMembers(propertyId)).some((m) => m.userId === userId && m.role === "owner");
+}
+
 /** Marks a fix as done. Only ids the current audit actually produced are accepted. */
 async function updateProfileImpl(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  const { store, property } = await requireProperty();
+  const { store, property, user } = await requireProperty();
+  if (!(await isOwner(store, property.id, user.id))) return { error: "Only the owner can change these settings." };
   const profile = readProfileForm(fd);
   if (!profile.ok) {
     return { fieldErrors: profile.errors, values: { ...echo(fd, PROFILE_FIELD_NAMES), otas: fd.getAll("otas").map(String).join(",") } };
@@ -99,7 +104,8 @@ async function updateProfileImpl(_prev: ActionState, fd: FormData): Promise<Acti
 }
 
 async function setBedCountImpl(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  const { store, property } = await requireProperty();
+  const { store, property, user } = await requireProperty();
+  if (!(await isOwner(store, property.id, user.id))) return { error: "Only the owner can change the bed count." };
   const beds = z.coerce.number().int().min(1).max(2000).safeParse(fd.get("beds"));
   if (!beds.success) return { error: "Enter a whole number of beds between 1 and 2000." };
   await store.updateProperty(property.id, { beds: beds.data });

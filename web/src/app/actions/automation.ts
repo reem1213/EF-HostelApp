@@ -11,6 +11,7 @@ import { loadDashboard } from "@/lib/dashboard";
 import { REASON_COPY } from "@/lib/domain/guardrails";
 import { dollarsToCents, fieldErrors } from "@/lib/forms";
 import { utcDay } from "@/lib/period";
+import { currentPriceFor } from "@/lib/rates/service";
 import { requireProperty } from "@/lib/session";
 import { safely } from "./safe";
 import type { ActionState } from "./types";
@@ -48,7 +49,10 @@ async function approveRunImpl(runId: string): Promise<ActionState> {
   // Limits may have changed since it was proposed: check again before anything is applied.
   if (existing.kind === "price_update" && existing.status === "proposed") {
     const d = await loadDashboard(store, property);
-    const check = checkRunParams(existing.params, { floorCents: d.floorCents, guardrails: d.guardrails, today: utcDay(new Date()) });
+    // Use the price the store holds now, not the one written in the run: the run's own numbers may be stale or edited.
+    const live = await currentPriceFor(store, property.id, { stayDate: String(existing.params.stayDate), channel: String(existing.params.channel), roomType: String(existing.params.roomType) });
+    if (live === null) return { error: "There is no rate for that night any more." };
+    const check = checkRunParams({ ...existing.params, currentCents: live }, { floorCents: d.floorCents, guardrails: d.guardrails, today: utcDay(new Date()) });
     if (!check.ok) return { error: check.reasons.map((r) => REASON_COPY[r]).join(" ") };
   }
   const run = await approveRun(deps, property.id, runId, user.id);

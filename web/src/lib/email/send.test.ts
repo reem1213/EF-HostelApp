@@ -56,3 +56,30 @@ describe("sendCampaign", () => {
     expect(rows[0].maskedEmail).toBe("a***@example.com");
   });
 });
+
+describe("sendCampaign under a rate limit", () => {
+  it("waits and retries when the provider says slow down, then succeeds", async () => {
+    const rows: OutboxRow[] = [];
+    let n = 0;
+    const waits: number[] = [];
+    const r = await sendCampaign(
+      { apiKey: "re_test", recordOutbox: async (x) => void rows.push(...x), fetchImpl: async () => (n++ < 2 ? new Response("slow", { status: 429 }) : new Response("{}", { status: 200 })), sleep: async (ms) => void waits.push(ms) },
+      { ...base, recipients: ["a@example.com"] },
+    );
+    expect(r).toEqual({ sent: 1, skipped: 0, mode: "sent" });
+    expect(n).toBe(3);
+    expect(waits.length).toBeGreaterThan(0);
+  });
+
+  it("records what was sent so far even if the loop is cut short", async () => {
+    const rows: OutboxRow[] = [];
+    let n = 0;
+    await expect(
+      sendCampaign(
+        { apiKey: "re_test", recordOutbox: async (x) => void rows.push(...x), fetchImpl: async () => { if (n++ === 1) throw new Error("boom"); return new Response("{}", { status: 200 }); }, sleep: async () => {} },
+        { ...base, recipients: ["a@example.com", "b@example.com", "c@example.com"] },
+      ),
+    ).resolves.toMatchObject({ sent: 2, skipped: 1 });
+    expect(rows).toHaveLength(3);
+  });
+});

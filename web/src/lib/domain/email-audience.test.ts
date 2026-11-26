@@ -52,3 +52,9 @@ describe("audienceReport", () => {
     expect(r.excluded).toEqual({ relay: 1, missing: 1, suppressed: 1 });
   });
 });
+
+describe("more relay domains", () => {
+  it("also leaves out Expedia Partner Central and Agoda forwarding addresses", () => {
+    for (const d of ["m.expediapartnercentral.com", "agoda-messaging.com"]) expect(eligibleAudience(twice(`x@${d}`), [], TODAY), d).toEqual([]);
+  });
+});

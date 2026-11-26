@@ -148,3 +148,31 @@ describe("importRatesText", () => {
     expect(out.details.join(" ")).toMatch(/up to 8/);
   });
 });
+
+describe("proposeRateChange on a booking site", () => {
+  it("blocks a list price whose take-home (after member discount and commission) is under the floor", async () => {
+    const s = await setup();
+    // Booking.com: 10% Genius funded by the host and 15% commission. List $30 keeps 30*0.9*0.85 = $22.95.
+    await s.store.saveRates(s.property.id, [snap({ channel: "booking_com", priceCents: 3300, discountedPriceCents: 2970, discountLabel: "Genius" })]);
+    const r = await proposeRateChange({ ...ctx(s), floorCents: 2400 }, { stayDate: "2026-11-28", channel: "booking_com", priceCents: 3000 });
+    expect(r).toMatchObject({ ok: false });
+    expect((r as { error: string }).error).toMatch(/keep/i);
+  });
+
+  it("allows it when the take-home is at or above the floor", async () => {
+    const s = await setup();
+    await s.store.saveRates(s.property.id, [snap({ channel: "booking_com", priceCents: 3300, discountedPriceCents: 2970, discountLabel: "Genius" })]);
+    // list 3200 keeps 3200*0.9*0.85 = 2448 >= 2400
+    expect(await proposeRateChange({ ...ctx(s), floorCents: 2400 }, { stayDate: "2026-11-28", channel: "booking_com", priceCents: 3200 })).toMatchObject({ ok: true });
+  });
+});
+
+describe("currentPriceFor", () => {
+  it("reads the live price from the store, ignoring whatever a run says", async () => {
+    const { currentPriceFor } = await import("./service");
+    const s = await setup();
+    await s.store.saveRates(s.property.id, [snap({ priceCents: 4000 })]);
+    expect(await currentPriceFor(s.store, s.property.id, { stayDate: "2026-11-28", channel: "direct", roomType: DORM_BED })).toBe(4000);
+    expect(await currentPriceFor(s.store, s.property.id, { stayDate: "2026-11-29", channel: "direct", roomType: DORM_BED })).toBeNull();
+  });
+});

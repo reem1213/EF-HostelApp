@@ -68,3 +68,17 @@ describe("suggestPrice", () => {
     expect(suggestPrice({ currentCents: 3000, gap: 0.1, floorCents: 1000, ceilingCents: 2500, maxChangePct: 0.15 })).toBe(2500);
   });
 });
+
+describe("suggestPrice always passes the daily limit", () => {
+  it("for every current price from $20 to $80 and a few gaps (rounding must not push a capped cut over the limit)", async () => {
+    const { checkPriceChange } = await import("./guardrails");
+    const today = new Date(Date.UTC(2026, 10, 26));
+    for (let cur = 2000; cur <= 8000; cur++) {
+      for (const gap of [0.05, 0.15, 0.4]) {
+        const s = suggestPrice({ currentCents: cur, gap, floorCents: 500, ceilingCents: null, maxChangePct: 0.15 });
+        const r = checkPriceChange({ currentCents: cur, proposedCents: s, floorCents: 500, ceilingCents: null, maxChangePct: 0.15, stayDate: today, today, roomType: "Dorm bed" });
+        if (!r.ok && s !== cur) throw new Error(`current ${cur} gap ${gap} suggested ${s} blocked: ${r.reasons}`);
+      }
+    }
+  });
+});

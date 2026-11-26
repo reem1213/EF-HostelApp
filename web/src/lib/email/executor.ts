@@ -51,7 +51,7 @@ export function emailCampaignExecutor(store: EmailStore, s: EmailSettings): Exec
       const live = Boolean(s.apiKey && s.from);
 
       const result = await sendCampaign(
-        { apiKey: live ? s.apiKey : undefined, fetchImpl: s.fetchImpl, recordOutbox: (rows) => store.addOutbox(ctx.propertyId, rows) },
+        { apiKey: live ? s.apiKey : undefined, fetchImpl: s.fetchImpl, throttleMs: live ? 520 : 0, recordOutbox: (rows) => store.addOutbox(ctx.propertyId, rows) },
         {
           from: s.from ? `${s.property.name.replace(/[<>"]/g, "")} via HostelPulse <${s.from}>` : "",
           replyTo: s.property.replyToEmail,

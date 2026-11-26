@@ -43,7 +43,8 @@ export function quietestNights(bookings: Booking[], beds: number, today: Date, h
 export function suggestPrice(a: { currentCents: number; gap: number; floorCents: number; ceilingCents: number | null; maxChangePct: number }): number {
   if (a.gap <= 0 || a.currentCents <= a.floorCents) return a.currentCents;
   const cut = Math.min(a.gap, a.maxChangePct);
-  let price = Math.round(a.currentCents * (1 - cut));
+  // Round up: rounding down could push a capped cut a fraction of a cent past the daily limit, and the limit check would reject it.
+  let price = Math.ceil(a.currentCents * (1 - cut) - 1e-9);
   if (a.ceilingCents !== null) price = Math.min(price, a.ceilingCents);
   return Math.min(a.currentCents, Math.max(a.floorCents, price));
 }

@@ -18,7 +18,7 @@ export const DEMO_COMPETITORS = ["Wrigley Hostel (example)", "Freehand Chicago (
 type ProposeCtx = {
   store: Pick<Store, "listRates" | "createRun">;
   deps: RunnerDeps;
-  property: Pick<Property, "id" | "otas">;
+  property: Pick<Property, "id" | "otas" | "otaSettings">;
   userId: string;
   floorCents: number;
   guardrails: Guardrails;
@@ -48,6 +48,13 @@ export async function proposeRateChange(ctx: ProposeCtx, input: { stayDate: stri
   const check = checkRunParams(params, { floorCents: ctx.floorCents, guardrails: ctx.guardrails, today: ctx.today });
   if (!check.ok) return { ok: false, error: check.reasons.map((r) => REASON_COPY[r]).join(" ") };
 
+  // On a booking site the floor is about what the hostel keeps, not the list price: member discount and commission come off first.
+  if (input.channel !== "direct") {
+    const ota = resolveOta(input.channel, ctx.property.otaSettings);
+    const keep = input.priceCents * (1 - (ota.memberDiscount ?? 0)) * (1 - ota.defaultCommission);
+    if (keep < ctx.floorCents - 1e-9) return { ok: false, error: `After the member discount and commission you would keep ${dollarsExact(Math.round(keep))}, which is below your price floor.` };
+  }
+
   const label = input.channel === "direct" ? "Direct" : resolveOta(input.channel).name;
   const date = day.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
   const run = await proposeRun(ctx.deps, ctx.property.id, {
@@ -57,6 +64,14 @@ export async function proposeRateChange(ctx: ProposeCtx, input: { stayDate: stri
     createdBy: ctx.userId,
   });
   return { ok: true, runId: run.id };
+}
+
+/** The price a night has right now, read from the store (never from a run's own parameters). */
+export async function currentPriceFor(store: Pick<Store, "listRates">, propertyId: string, p: { stayDate: string; channel: string; roomType: string }): Promise<number | null> {
+  const day = new Date(`${p.stayDate.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(day.getTime())) return null;
+  const rows = (await store.listRates(propertyId, { start: day, end: new Date(day.getTime() + DAY) })).filter((r) => r.channel === p.channel && r.roomType === p.roomType && r.competitorId === null);
+  return currentSnapshot(rows)?.priceCents ?? null;
 }
 
 /** Adds the labelled example competitors (as many as fit) and fills 14 nights of simulated rates. Safe to repeat. */

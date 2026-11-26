@@ -4,7 +4,7 @@ const DAY = 86_400_000;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Booking sites hide guests behind forwarding addresses that cannot be used for marketing. */
-export const RELAY_DOMAINS = ["guest.booking.com", "m.expediapartner.com", "guest.airbnb.com", "reply.hostelworld.com"];
+export const RELAY_DOMAINS = ["guest.booking.com", "m.expediapartner.com", "guest.airbnb.com", "reply.hostelworld.com", "m.expediapartnercentral.com", "agoda-messaging.com"];
 
 const isRelay = (email: string) => {
   const domain = email.slice(email.lastIndexOf("@") + 1);

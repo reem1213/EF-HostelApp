@@ -15,6 +15,8 @@ export type QuietView = {
   usualPct: number;
   /** Direct price now and the suggested one, or null when no rate is loaded for the night. */
   current: string | null;
+  /** True when the current price is a simulated example. */
+  simulated: boolean;
   suggested: string | null;
   suggestedRaw: string | null;
 };
@@ -56,7 +58,7 @@ function QuietRow({ night }: { night: QuietView }) {
 
       {night.suggested && night.current ? (
         <p className="mt-2 text-[14px]">
-          Suggested price: <strong className="tabular-nums">{night.suggested}</strong> <span className="text-muted">(now {night.current})</span>
+          Suggested price: <strong className="tabular-nums">{night.suggested}</strong> <span className="text-muted">(now {night.current}{night.simulated ? ", simulated example" : ""})</span>
         </p>
       ) : night.current ? (
         <p className="mt-2 text-[13px] text-muted">Your price is {night.current}, already at your price floor, so no cut is suggested.</p>

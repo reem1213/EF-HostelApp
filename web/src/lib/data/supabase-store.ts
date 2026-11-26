@@ -86,7 +86,9 @@ export class SupabaseStore implements Store {
   }
 
   async updateProperty(propertyId: string, patch: PropertyPatch) {
-    must(await this.db.from("properties").update(SupabaseStore.toColumns(patch)).eq("id", propertyId), "Could not update property");
+    const rows = must(await this.db.from("properties").update(SupabaseStore.toColumns(patch)).eq("id", propertyId).select("id"), "Could not update property") as Row[];
+    // Row-level security hides rows from a non-owner instead of raising an error, so zero rows means nothing was saved.
+    if (rows.length === 0) throw new Error("You do not have permission to change this.");
   }
 
   async listMembers(propertyId: string) {

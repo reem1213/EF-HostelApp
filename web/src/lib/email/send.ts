@@ -5,6 +5,9 @@ export type SendDeps = {
   apiKey?: string;
   recordOutbox: (rows: OutboxRow[]) => Promise<void>;
   fetchImpl?: typeof fetch;
+  /** Pause between guests, to stay under the provider's rate limit. Default none. */
+  throttleMs?: number;
+  sleep?: (ms: number) => Promise<void>;
 };
 
 export type SendInput = {
@@ -39,10 +42,15 @@ export async function sendCampaign(deps: SendDeps, a: SendInput): Promise<{ sent
   }
 
   const doFetch = deps.fetchImpl ?? fetch;
-  for (const to of targets) {
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  try {
+  for (const [i, to] of targets.entries()) {
+    if (i > 0 && deps.throttleMs) await sleep(deps.throttleMs);
     const m = a.render(to);
     try {
-      const res = await doFetch("https://api.resend.com/emails", {
+      let res: Response | null = null;
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        res = await doFetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${deps.apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -54,19 +62,25 @@ export async function sendCampaign(deps: SendDeps, a: SendInput): Promise<{ sent
           text: m.text,
           headers: { "List-Unsubscribe": `<${m.unsubscribeUrl}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
         }),
-      });
-      if (res.ok) {
+        });
+        if (res.status !== 429 || attempt === 4) break;
+        await sleep(1000 * attempt); // told to slow down: wait, then try the same guest again
+      }
+      if (res?.ok) {
         sent++;
         rows.push({ maskedEmail: maskEmail(to), subject: a.subject, status: "sent" });
       } else {
         skipped++;
-        rows.push({ maskedEmail: maskEmail(to), subject: a.subject, status: "failed", error: `The email service answered ${res.status}.` });
+        rows.push({ maskedEmail: maskEmail(to), subject: a.subject, status: "failed", error: `The email service answered ${res?.status ?? "nothing"}.` });
       }
     } catch {
       skipped++;
       rows.push({ maskedEmail: maskEmail(to), subject: a.subject, status: "failed", error: "Could not reach the email service." });
     }
   }
-  await deps.recordOutbox(rows);
+  } finally {
+    // Always keep a record of what was attempted, even if the loop is cut short.
+    await deps.recordOutbox(rows);
+  }
   return { sent, skipped, mode: "sent" };
 }

@@ -111,7 +111,8 @@ as $$
 declare uid uuid := auth.uid(); mail text; pid uuid; seats int; used int; joined uuid;
 begin
   if uid is null then return null; end if;
-  select lower(email) into mail from auth.users where id = uid;
+  -- Only a confirmed address may claim an invite, or anyone could sign up with an invited address.
+  select lower(email) into mail from auth.users where id = uid and email_confirmed_at is not null;
   if mail is null then return null; end if;
   if exists (select 1 from public.property_members where user_id = uid) then return null; end if;
   for pid in select i.property_id from public.property_invites i where i.email = mail loop
@@ -410,6 +411,21 @@ create policy "members create runs" on public.automation_runs
   for insert to authenticated with check (public.is_member(property_id) and created_by = auth.uid());
 create policy "members update runs" on public.automation_runs
   for update to authenticated using (public.is_member(property_id)) with check (public.is_member(property_id));
+
+-- What a run does and who made it cannot be edited after the fact (only its progress can). Members could
+-- otherwise rewrite the parameters of a proposed price change to get around the owner's limits.
+create or replace function public.freeze_run_definition()
+returns trigger language plpgsql as $$
+begin
+  if new.kind is distinct from old.kind or new.params is distinct from old.params or new.created_by is distinct from old.created_by
+     or new.property_id is distinct from old.property_id or new.created_at is distinct from old.created_at then
+    raise exception 'An action cannot be edited after it is proposed.';
+  end if;
+  return new;
+end $$;
+drop trigger if exists automation_runs_freeze on public.automation_runs;
+create trigger automation_runs_freeze before update on public.automation_runs
+  for each row execute function public.freeze_run_definition();
 
 -- Let signed-in users reach these tables through the API. Newer Supabase projects
 -- do not grant this automatically, which shows up as "permission denied for table".

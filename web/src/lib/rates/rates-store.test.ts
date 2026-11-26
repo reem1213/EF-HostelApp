@@ -97,3 +97,18 @@ describe("the rate writer and the approval runner together", () => {
     expect(await storeRateWriter(store).getRate({ propertyId: property.id, stayDate: d(28), channel: "direct", roomType: DORM_BED })).toBeNull();
   });
 });
+
+describe("undo only when nothing changed since", () => {
+  it("refuses to undo an earlier change once a later one has moved the price", async () => {
+    const { store, property } = await setup();
+    await store.saveRates(property.id, [snap({ priceCents: 4000 })]);
+    let t = 1_800_000_000_000;
+    const writer = storeRateWriter(store, () => new Date((t += 1000)));
+    const deps = { store, executors: { price_update: localRateExecutor(writer) }, now: () => d(26) };
+    const mk = async (price: number) => (await proposeRun(deps, property.id, { kind: "price_update", title: "x", params: { stayDate: "2026-11-28", channel: "direct", roomType: DORM_BED, currentCents: 4000, priceCents: price }, createdBy: "u1" })).id;
+    const a = await approveRun(deps, property.id, await mk(4600), "u1");
+    await approveRun(deps, property.id, await mk(5000), "u1");
+    await expect(undoRun(deps, property.id, a.id, "u1")).rejects.toThrow(/changed since/i);
+    expect(await writer.getRate({ propertyId: property.id, stayDate: d(28), channel: "direct", roomType: DORM_BED })).toBe(5000);
+  });
+});

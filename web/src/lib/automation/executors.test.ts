@@ -39,10 +39,10 @@ describe("localRateExecutor", () => {
 
   it("undo puts the old price back, or removes the rate if there was none", async () => {
     const a = fakeWriter({ [K]: 3400 });
-    await localRateExecutor(a.writer).undo!(run(params, { before: 3000, status: "applied" }), ctx("2026-11-25T10:00:00Z"));
+    await localRateExecutor(a.writer).undo!(run(params, { before: 3000, after: 3400, status: "applied" }), ctx("2026-11-25T10:00:00Z"));
     expect(a.rates.get(K)).toBe(3000);
     const b = fakeWriter({ [K]: 3400 });
-    await localRateExecutor(b.writer).undo!(run(params, { before: null, status: "applied" }), ctx("2026-11-25T10:00:00Z"));
+    await localRateExecutor(b.writer).undo!(run(params, { before: null, after: 3400, status: "applied" }), ctx("2026-11-25T10:00:00Z"));
     expect(b.calls).toEqual(["clear"]);
     expect(b.rates.has(K)).toBe(false);
   });

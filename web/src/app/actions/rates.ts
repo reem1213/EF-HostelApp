@@ -93,7 +93,8 @@ const pctField = (label: string, max: number) =>
 /** Per-site commission and member discount. A blank field means "use the standard rate". */
 export async function saveOtaSettingsAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   return safely("saveOtaSettings", async () => {
-    const { store, property } = await requireProperty();
+    const { store, property, user } = await requireProperty();
+    if (!(await store.listMembers(property.id)).some((m) => m.userId === user.id && m.role === "owner")) return { error: "Only the owner can change booking site fees." };
     const errors: Record<string, string> = {};
     const values: Record<string, string> = {};
     const next: OtaSettings = {};

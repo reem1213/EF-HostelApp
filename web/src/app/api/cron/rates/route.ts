@@ -15,7 +15,13 @@ const handler = makeCronHandler<CronProperty>({
   },
   async listProperties() {
     const db = supabaseService();
-    const { data, error } = await db.from("properties").select("id,beds,otas,ota_settings");
+    // Only hostels that chose "Load simulated example" are refreshed: everyone else keeps the empty state, so
+    // simulated prices never appear unasked. (Real sources will refresh by connection instead.)
+    const { data: optedIn, error: e1 } = await db.from("rate_snapshots").select("property_id").eq("source", "simulated").limit(5000);
+    if (e1) throw new Error(`Could not list hostels: ${e1.message}`);
+    const ids = [...new Set((optedIn ?? []).map((r) => String(r.property_id)))];
+    if (ids.length === 0) return [];
+    const { data, error } = await db.from("properties").select("id,beds,otas,ota_settings").in("id", ids);
     if (error) throw new Error(`Could not list properties: ${error.message}`);
     return (data ?? []).map((r) => ({ id: String(r.id), beds: Number(r.beds), otas: (r.otas as string[] | null) ?? [], otaSettings: (r.ota_settings as CronProperty["otaSettings"] | null) ?? {} }));
   },

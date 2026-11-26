@@ -1,3 +1,4 @@
+import { AutomationError } from "./runner";
 import type { ActionRun, AutomationKind, ExecCtx, Executor } from "./types";
 
 type RateKey = { propertyId: string; stayDate: Date; channel: string; roomType: string };
@@ -40,6 +41,8 @@ export function localRateExecutor(writer: RateWriter): Executor {
     async undo(run, ctx) {
       const p = readPriceParams(run);
       const key = { propertyId: ctx.propertyId, stayDate: p.stayDate, channel: p.channel, roomType: p.roomType };
+      // A later change (or a hand edit) has moved the price since: undoing now would overwrite it with a stale value.
+      if ((await writer.getRate(key)) !== run.after) throw new AutomationError("not_reversible", "The price has changed since this action. Undo the later change first.");
       if (typeof run.before === "number") await writer.setRate({ ...key, priceCents: run.before });
       else await writer.clearRate(key);
     },
