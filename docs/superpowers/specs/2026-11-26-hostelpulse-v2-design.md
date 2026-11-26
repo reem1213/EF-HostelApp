@@ -66,6 +66,7 @@ The pilot property is HI Chicago. Its public listings show why comparisons must 
 ## Decisions
 
 ### Phase 1: quick wins
+- **Team access (foundation):** `property_members` (owner or manager) and `property_invites`, seat limit by plan (free 1, team 3), membership-based row-level security replacing owner-only. Invites are accepted when the invited email signs in. Everything below builds on it.
 - **Onboarding and property settings** add: OTAs used (Booking.com, Hostelworld, Expedia, Airbnb, Agoda, Trip.com, Hotels.com, other), website URL, social links (Instagram, Facebook, TikTok, YouTube, Google Business Profile). Editable later in More. URLs must be `https` and are validated; they are used later for SEO analysis. Stored on `properties` (`otas`, `website`, `socials`), with an idempotent schema migration.
 - **Capacity check.** After any bookings import (and on the dashboard), compute the largest number of overlapping bookings on any night. If it exceeds declared beds, show a warning naming the date and the two numbers, with two actions: update the bed count to match, or review the file (likely duplicates or multi-bed reservations). Does not block the import.
 - **Costs page:** move "Cost per bed" directly under the next steps.
@@ -93,14 +94,15 @@ The pilot property is HI Chicago. Its public listings show why comparisons must 
 - **Price units:** the rate table is **per bed per night**. The floor (cost per bed plus a minimum margin, default 20%) applies to bed rows only. Private-room rows are shown but get no automatic floor until per-room costs exist. The ceiling is a user-set absolute rate, defaulting to twice the current base rate.
 - **Undo:** each run stores before and after values and a reversible flag. Undo restores the previous value through the same executor (local rate store now, PMS push later). Not available once the night has passed. Re-running an approved action is idempotent.
 - **Simulated rates:** generated deterministically from a seed and the hostel's own base rate, including a fake member discount on Genius-style OTAs so both prices render. For real users the table starts with an explicit empty state and a "Load simulated example" button, so simulated data is never mistaken for real. The HI Chicago comp set (Wrigley Hostel, Freehand, Grand House 424) is only a labelled demo example.
-- **Access:** one manager per property (V1's rule). The approver is the property owner. The nightly job uses a server-only Supabase service key inside one secret-protected cron route, with every query scoped to a property.
+- **Access (updated by the owner):** up to **3 users per property**, gated by plan: the free plan has 1 seat (the owner), the team plan has 3 (this is part of a bigger paid plan; billing itself comes later with Stripe, so the plan is a flag for now). The owner invites by email. Any member can approve actions; the run log records who. This moves data access from "owner only" to **membership-based row-level security**, so it ships in Phase 1. The nightly job uses a server-only Supabase service key inside one secret-protected cron route, with every query scoped to a property.
 - **AI cost and events:** omitting events and news reasons is an acceptable V2 outcome. AI calls get a per-hostel daily cap.
 - **Done means:** type-check, lint and tests pass; the production build is exercised in a browser; merged to `main` so Vercel deploys. Resend and cron environment setup are documented. Test data is synthetic.
 
-## Open questions for the owner
+## Owner answers
 
-1. Email sender and compliance (default proposed below).
-2. Confirm the "Appear before OTAs" interpretation (brand-name ad bidding).
+1. Email: the proposed default is accepted (hostel-branded sends from the HostelPulse sending address with the hostel as reply-to; postal address per hostel; real addresses only; unsubscribe and suppression list; warning rather than a legal gate for EU/UK/Canada guests).
+2. "Appear before OTAs" means asking chosen OTAs to stop bidding on the hostel's own name. Confirmed.
+3. Build all three phases.
 
 ## What is left to the builder
 
