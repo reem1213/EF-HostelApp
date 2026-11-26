@@ -94,6 +94,8 @@ export interface Store {
   // monthly cost inputs (forms)
   getCostInputs(propertyId: string, month: string): Promise<CostInputs | null>;
   saveCostInputs(propertyId: string, inputs: CostInputs): Promise<void>;
+  /** Every month the manager has entered costs for. */
+  listCostInputs(propertyId: string): Promise<CostInputs[]>;
 
   // imported / synced data
   listBookings(propertyId: string): Promise<Booking[]>;

@@ -117,6 +117,10 @@ export class MemoryStore implements Store {
     this.costInputs.set(`${propertyId}:${inputs.month}`, inputs);
   }
 
+  async listCostInputs(propertyId: string) {
+    return [...this.costInputs.entries()].filter(([k]) => k.startsWith(`${propertyId}:`)).map(([, v]) => v);
+  }
+
   async listBookings(propertyId: string) {
     return [...(this.bookings.get(propertyId)?.values() ?? [])];
   }

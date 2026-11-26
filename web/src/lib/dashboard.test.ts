@@ -66,6 +66,20 @@ describe("dashboard on the demo hostel", () => {
   });
 });
 
+describe("chart series on the dashboard", () => {
+  it("provides six months of revenue, six months of cost lines, and a weekday profile", async () => {
+    const { store, property } = await demo();
+    const d = await loadDashboard(store, property, now);
+    expect(d.monthly).toHaveLength(6);
+    expect(d.monthly.at(-1)?.month).toBe("2026-11");
+    expect(d.monthly.some((m) => m.bookings > 0)).toBe(true);
+    expect(d.costHistory).toHaveLength(6);
+    expect(d.costHistory.at(-2)?.lines.utilities).toBe(62_000);
+    expect(d.costHistory.at(-1)?.lines.utilities).toBe(70_000);
+    expect(d.weekday.map((w) => w.weekday)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+});
+
 describe("capacity on the dashboard", () => {
   it("is fine for the demo hostel and exceeded once the declared beds shrink below the peak", async () => {
     const { store, property } = await demo();

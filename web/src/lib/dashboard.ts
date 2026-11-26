@@ -7,6 +7,7 @@ import { profitActions, rankActions, reviewActions, setupActions, type DataState
 import type { AuditResult, DateRange, Finding } from "./domain/types";
 import { materializeInputs } from "./domain/costs";
 import { defaultBenchmark, type ConnectionRecord, type ImportRecord, type Property, type ReviewSnapshot, type Store, type StoredExpense } from "./data/store";
+import { costHistory, monthlySeries, weekdayOccupancy } from "./domain/series";
 import { chooseWindow, formatRange, monthOf, previousMonth, previousWindow } from "./period";
 
 const DAY = 86_400_000;
@@ -35,6 +36,12 @@ export type Dashboard = {
   hasAnyData: boolean;
   /** Whether stored bookings need more beds than the hostel declared. */
   capacity: CapacityCheck;
+  /** Six months of bookings and revenue, oldest first. */
+  monthly: ReturnType<typeof monthlySeries>;
+  /** Six months of the five cost lines, oldest first. */
+  costHistory: ReturnType<typeof costHistory>;
+  /** Occupancy per weekday (Sunday = 0) for the analysed window. */
+  weekday: ReturnType<typeof weekdayOccupancy>;
 };
 
 /** Builds everything the pages show from stored data. Pure orchestration; the maths lives in the domain layer. */
@@ -45,7 +52,7 @@ export async function loadDashboard(store: Store, property: Property, now = new 
   const month = monthOf(new Date(window.end.getTime() - DAY));
   const prevMonthKey = previousMonth(month);
 
-  const [expensesAll, shifts, costInputs, prevCostInputs, imports, connections, reviews, addressed] = await Promise.all([
+  const [expensesAll, shifts, costInputs, prevCostInputs, imports, connections, reviews, addressed, allCostInputs] = await Promise.all([
     store.listExpenses(property.id, { start: prev.start, end: window.end }),
     store.listShifts(property.id, window),
     store.getCostInputs(property.id, month),
@@ -54,6 +61,7 @@ export async function loadDashboard(store: Store, property: Property, now = new 
     store.listConnections(property.id),
     store.listReviewSnapshots(property.id),
     store.addressedIds(property.id),
+    store.listCostInputs(property.id),
   ]);
 
   const inWindow = (e: StoredExpense, w: DateRange) => e.date >= w.start && e.date < w.end;
@@ -123,6 +131,9 @@ export async function loadDashboard(store: Store, property: Property, now = new 
     reviews,
     hasAnyData: dataState.hasBookings || dataState.hasBankData || breakdown.totalCents > 0,
     capacity: capacityCheck(allBookings, property.beds),
+    monthly: monthlySeries(allBookings, 6, lastDay),
+    costHistory: costHistory(allCostInputs, 6, lastDay),
+    weekday: weekdayOccupancy(allBookings, property.beds, window),
   };
 }
 

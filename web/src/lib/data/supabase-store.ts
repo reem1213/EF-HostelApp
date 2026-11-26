@@ -147,6 +147,18 @@ export class SupabaseStore implements Store {
     );
   }
 
+  async listCostInputs(propertyId: string) {
+    const rows = must(await this.db.from("cost_inputs").select("*").eq("property_id", propertyId).order("month"), "Could not load costs") as Row[];
+    return rows.map<CostInputs>((r) => ({
+      month: String(r.month),
+      rentCents: Number(r.rent_cents),
+      utilitiesCents: Number(r.utilities_cents),
+      staffCents: Number(r.staff_cents),
+      breakfastCents: Number(r.breakfast_cents),
+      laundryCents: Number(r.laundry_cents),
+    }));
+  }
+
   async listBookings(propertyId: string) {
     const out: Booking[] = [];
     // Page through results: PostgREST returns at most 1000 rows per request.
