@@ -287,6 +287,20 @@ create table if not exists public.rate_snapshots (
 );
 create index if not exists rate_snapshots_lookup on public.rate_snapshots(property_id, stay_date, channel);
 
+-- Requests to booking sites (for example "stop bidding on our name"). One per site; sent by hand.
+create table if not exists public.ota_tickets (
+  id           uuid primary key default gen_random_uuid(),
+  property_id  uuid not null references public.properties(id) on delete cascade,
+  ota_id       text not null check (char_length(ota_id) between 1 and 40),
+  status       text not null default 'draft' check (status in ('draft','submitted','answered')),
+  subject      text not null check (char_length(subject) between 1 and 300),
+  body         text not null check (char_length(body) between 1 and 5000),
+  created_at   timestamptz not null default now(),
+  submitted_at timestamptz,
+  answered_at  timestamptz,
+  unique (property_id, ota_id)
+);
+
 create table if not exists public.review_snapshots (
   property_id  uuid not null references public.properties(id) on delete cascade,
   month        text not null check (month ~ '^\d{4}-(0[1-9]|1[0-2])$'),
@@ -311,6 +325,7 @@ alter table public.review_snapshots enable row level security;
 alter table public.automation_runs  enable row level security;
 alter table public.competitors      enable row level security;
 alter table public.rate_snapshots   enable row level security;
+alter table public.ota_tickets      enable row level security;
 
 drop policy if exists "owners manage their properties" on public.properties; -- name used by the earliest version
 drop policy if exists "owners manage their property" on public.properties;
@@ -342,7 +357,7 @@ create policy "owners manage invites" on public.property_invites
 do $$
 declare t text;
 begin
-  foreach t in array array['cost_inputs','imports','bookings','expenses','shifts','connections','finding_actions','review_snapshots','competitors','rate_snapshots']
+  foreach t in array array['cost_inputs','imports','bookings','expenses','shifts','connections','finding_actions','review_snapshots','competitors','rate_snapshots','ota_tickets']
   loop
     execute format('drop policy if exists "owners manage %1$s" on public.%1$I', t);
     execute format(
@@ -388,3 +403,4 @@ grant select, insert, update on public.automation_runs to authenticated;
 grant select, delete on public.property_members to authenticated;
 grant select, insert, delete on public.property_invites to authenticated;
 grant select, insert, delete on public.competitors, public.rate_snapshots to authenticated;
+grant select, insert, update on public.ota_tickets to authenticated;

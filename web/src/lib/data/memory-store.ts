@@ -8,6 +8,7 @@ import { maxSeats, type Plan } from "../domain/team";
 import { defaultGuardrails, type Guardrails } from "../domain/guardrails";
 import type { ActionRun, NewRun, RunPatch } from "../automation/types";
 import type { Competitor, RateSnapshot } from "../domain/rates";
+import type { TicketStatus } from "../domain/tickets";
 import type {
   ConnectionRecord,
   ImportRecord,
@@ -19,6 +20,7 @@ import type {
   Store,
   StoredExpense,
   StoredShift,
+  Ticket,
 } from "./store";
 
 type Conn = ConnectionRecord & { credentialsEnc: string };
@@ -40,6 +42,7 @@ export class MemoryStore implements Store {
   private rates = new Map<string, RateSnapshot[]>();
   private competitors = new Map<string, Competitor[]>();
   private guardrails = new Map<string, Guardrails>();
+  private tickets = new Map<string, Ticket[]>();
 
   async getProperty(userId: string) {
     for (const [pid, list] of this.members) {
@@ -259,6 +262,26 @@ export class MemoryStore implements Store {
 
   async listRuns(propertyId: string, limit = 50) {
     return (this.runs.get(propertyId) ?? []).slice(0, limit).map((r) => ({ ...r }));
+  }
+
+  async listTickets(propertyId: string) {
+    return (this.tickets.get(propertyId) ?? []).map((t) => ({ ...t }));
+  }
+
+  async upsertTicket(propertyId: string, t: { otaId: string; status: TicketStatus; subject: string; body: string }) {
+    const list = this.tickets.get(propertyId) ?? [];
+    const now = new Date();
+    const i = list.findIndex((x) => x.otaId === t.otaId);
+    const prev = i >= 0 ? list[i] : null;
+    const next: Ticket = {
+      ...t,
+      createdAt: prev?.createdAt ?? now,
+      submittedAt: prev?.submittedAt ?? (t.status !== "draft" ? now : null),
+      answeredAt: prev?.answeredAt ?? (t.status === "answered" ? now : null),
+    };
+    if (i >= 0) list[i] = next;
+    else list.push(next);
+    this.tickets.set(propertyId, list);
   }
 
   async getGuardrails(propertyId: string) {

@@ -6,6 +6,7 @@ import type { Plan } from "../domain/team";
 import type { Guardrails } from "../domain/guardrails";
 import type { ActionRun, NewRun, RunPatch } from "../automation/types";
 import type { Competitor, RateSnapshot } from "../domain/rates";
+import type { TicketStatus } from "../domain/tickets";
 import type { OtaSettings } from "../domain/ota";
 import type { Socials } from "../domain/profile";
 
@@ -31,6 +32,8 @@ export type NewProperty = Pick<Property, "name" | "beds" | "currency" | "country
   Partial<Pick<Property, "otas" | "website" | "socials" | "postalAddress" | "replyToEmail" | "otaSettings">>;
 
 export type PropertyPatch = Partial<Pick<Property, "name" | "beds" | "country" | "otas" | "website" | "socials" | "postalAddress" | "replyToEmail" | "otaSettings">>;
+
+export type Ticket = { otaId: string; status: TicketStatus; subject: string; body: string; createdAt: Date; submittedAt: Date | null; answeredAt: Date | null };
 
 export type Member = { userId: string; email: string; role: "owner" | "manager" };
 
@@ -144,6 +147,11 @@ export interface Store {
   addCompetitor(propertyId: string, name: string): Promise<Competitor>;
   /** Also removes that competitor's rates. */
   removeCompetitor(propertyId: string, id: string): Promise<void>;
+
+  // requests to booking sites (one per site)
+  listTickets(propertyId: string): Promise<Ticket[]>;
+  /** Creates or updates the ticket for a booking site. Submitted/answered dates are stamped the first time the status is reached. */
+  upsertTicket(propertyId: string, t: { otaId: string; status: TicketStatus; subject: string; body: string }): Promise<void>;
 
   // progress on fixes
   addressedIds(propertyId: string): Promise<Set<string>>;

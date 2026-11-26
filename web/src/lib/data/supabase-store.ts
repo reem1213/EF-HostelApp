@@ -4,7 +4,8 @@ import type { CostInputs } from "../domain/costs";
 import type { BookingRow, ExpenseRow, ImportKind, RowError, ShiftRow } from "../domain/import/parsers";
 import type { Booking, DateRange, ExpenseCategory } from "../domain/types";
 import type { ConnectionStatus, ProviderId } from "../integrations/providers";
-import type { ConnectionRecord, ImportRecord, Member, NewProperty, Property, PropertyPatch, ReviewSnapshot, Store, StoredExpense, StoredShift } from "./store";
+import type { ConnectionRecord, ImportRecord, Member, NewProperty, Property, PropertyPatch, ReviewSnapshot, Store, StoredExpense, StoredShift, Ticket } from "./store";
+import type { TicketStatus } from "../domain/tickets";
 import type { Plan } from "../domain/team";
 import { defaultGuardrails, type Guardrails } from "../domain/guardrails";
 import type { ActionRun, NewRun, RunPatch } from "../automation/types";
@@ -402,6 +403,32 @@ export class SupabaseStore implements Store {
   async listRuns(propertyId: string, limit = 50) {
     const rows = must(await this.db.from("automation_runs").select("*").eq("property_id", propertyId).order("created_at", { ascending: false }).limit(limit), "Could not load actions") as Row[];
     return rows.map((r) => this.toRun(r));
+  }
+
+  async listTickets(propertyId: string) {
+    const rows = must(await this.db.from("ota_tickets").select("*").eq("property_id", propertyId).order("created_at"), "Could not load requests") as Row[];
+    const d = (v: unknown) => (v ? new Date(String(v)) : null);
+    return rows.map<Ticket>((r) => ({ otaId: String(r.ota_id), status: r.status as TicketStatus, subject: String(r.subject), body: String(r.body), createdAt: new Date(String(r.created_at)), submittedAt: d(r.submitted_at), answeredAt: d(r.answered_at) }));
+  }
+
+  async upsertTicket(propertyId: string, t: { otaId: string; status: TicketStatus; subject: string; body: string }) {
+    const existing = must(await this.db.from("ota_tickets").select("submitted_at,answered_at").eq("property_id", propertyId).eq("ota_id", t.otaId).maybeSingle(), "Could not load request") as Row | null;
+    const now = new Date().toISOString();
+    must(
+      await this.db.from("ota_tickets").upsert(
+        {
+          property_id: propertyId,
+          ota_id: t.otaId,
+          status: t.status,
+          subject: t.subject,
+          body: t.body,
+          submitted_at: existing?.submitted_at ?? (t.status !== "draft" ? now : null),
+          answered_at: existing?.answered_at ?? (t.status === "answered" ? now : null),
+        },
+        { onConflict: "property_id,ota_id" },
+      ),
+      "Could not save request",
+    );
   }
 
   async getGuardrails(propertyId: string) {
