@@ -25,16 +25,16 @@ export function DirectSlider({ revenueCents, currentDirectShare, otaCommission, 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-hairline bg-surface p-4">
       <div>
-        <p className="text-[14px] font-semibold">What if more guests booked direct?</p>
-        <p className="text-[12.5px] text-muted">Drag to change the share of bookings that come direct instead of through booking sites.</p>
+        <p className="text-[18px] font-semibold leading-snug tracking-tight">What if more guests booked direct?</p>
+        <p className="mt-1 text-[14px] leading-snug text-muted">Drag to change the share of bookings that come direct instead of through booking sites.</p>
       </div>
 
       <div>
         <div className="flex items-baseline justify-between">
-          <label htmlFor={id} className="text-[13px] font-medium">
+          <label htmlFor={id} className="text-[15px] font-semibold">
             Direct bookings
           </label>
-          <span className="font-serif text-[26px] font-semibold leading-none">{pct}%</span>
+          <span className="text-[44px] font-bold leading-none tracking-tight tabular-nums">{pct}%</span>
         </div>
         <input
           id={id}
@@ -45,16 +45,16 @@ export function DirectSlider({ revenueCents, currentDirectShare, otaCommission, 
           value={pct}
           onChange={(e) => setPct(Number(e.target.value))}
           aria-valuetext={`${pct} percent direct`}
-          className="mt-2 w-full accent-teal"
+          className="mt-3 h-2 w-full accent-teal"
         />
-        <div className="flex justify-between text-[11px] text-muted" aria-hidden>
+        <div className="flex justify-between text-[13px] text-muted" aria-hidden>
           <span>0%</span>
           <span>Today {nowPct}%</span>
           <span>100%</span>
         </div>
       </div>
 
-      <p className={`text-[15px] font-semibold ${r.deltaCents >= 0 ? "text-green" : "text-red"}`} role="status">
+      <p className={`text-[22px] font-bold leading-tight tracking-tight tabular-nums ${r.deltaCents >= 0 ? "text-green" : "text-red"}`} role="status">
         {r.deltaCents === 0 ? "Same as today" : `${r.deltaCents > 0 ? "+" : "−"}${dollars(Math.abs(r.deltaCents))} a month vs today`}
       </p>
 
@@ -68,7 +68,7 @@ export function DirectSlider({ revenueCents, currentDirectShare, otaCommission, 
         valueHeader="Kept after fees"
       />
 
-      <p className="text-[12px] text-muted">
+      <p className="text-[13px] leading-snug text-muted">
         Assumes {Math.round(otaCommission * 100)}% commission{otaNames.length > 0 ? ` (${otaNames.join(", ")})` : ""} on booking-site bookings and {Math.round(directFee * 100)}% payment fees on direct ones.
       </p>
     </div>
