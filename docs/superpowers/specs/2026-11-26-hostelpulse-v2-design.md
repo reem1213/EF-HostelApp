@@ -87,6 +87,21 @@ The pilot property is HI Chicago. Its public listings show why comparisons must 
   3. **Price comparison.** The Phase 2 rate table.
 - **Repeat-guest emails** (`/profit/emails`): choose a template (welcome back with a direct code, seasonal invitation, review request), preview, pick the audience (guests with a real email who stayed before), schedule. Only guests with usable addresses are included; OTA relay domains are excluded; a suppression list and an unsubscribe link are mandatory, and the sender's postal address is included. Sending uses an email provider (Resend, my call); with no key configured, emails go to a visible outbox log and are not sent.
 
+## Calls made after review (mine; change any)
+
+- **Data V1 already has:** bookings carry channel, nights, revenue and a guest key (email, else name); the property has a bed count; cost per bed exists. V1 has **no room type**. V2 adds an optional `room_type` label on bookings and rate rows, defaulting to "Dorm bed". There is no per-hostel room-type list; it is a free-form label.
+- **Price units:** the rate table is **per bed per night**. The floor (cost per bed plus a minimum margin, default 20%) applies to bed rows only. Private-room rows are shown but get no automatic floor until per-room costs exist. The ceiling is a user-set absolute rate, defaulting to twice the current base rate.
+- **Undo:** each run stores before and after values and a reversible flag. Undo restores the previous value through the same executor (local rate store now, PMS push later). Not available once the night has passed. Re-running an approved action is idempotent.
+- **Simulated rates:** generated deterministically from a seed and the hostel's own base rate, including a fake member discount on Genius-style OTAs so both prices render. For real users the table starts with an explicit empty state and a "Load simulated example" button, so simulated data is never mistaken for real. The HI Chicago comp set (Wrigley Hostel, Freehand, Grand House 424) is only a labelled demo example.
+- **Access:** one manager per property (V1's rule). The approver is the property owner. The nightly job uses a server-only Supabase service key inside one secret-protected cron route, with every query scoped to a property.
+- **AI cost and events:** omitting events and news reasons is an acceptable V2 outcome. AI calls get a per-hostel daily cap.
+- **Done means:** type-check, lint and tests pass; the production build is exercised in a browser; merged to `main` so Vercel deploys. Resend and cron environment setup are documented. Test data is synthetic.
+
+## Open questions for the owner
+
+1. Email sender and compliance (default proposed below).
+2. Confirm the "Appear before OTAs" interpretation (brand-name ad bidding).
+
 ## What is left to the builder
 
 Exact table columns and indexes; the chart set's visual design; the precise price-floor margin default; wording of templates and tickets; how the SEO scorer weighs checks; cron timing; whether to use Claude's web search for events (verify availability and cost first).
