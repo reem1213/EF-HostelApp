@@ -9,7 +9,9 @@ import type {
   ConnectionRecord,
   ImportRecord,
   Member,
+  NewProperty,
   Property,
+  PropertyPatch,
   ReviewSnapshot,
   Store,
   StoredExpense,
@@ -39,11 +41,26 @@ export class MemoryStore implements Store {
     return null;
   }
 
-  async createProperty(userId: string, p: Omit<Property, "id" | "plan">, ownerEmail = "") {
-    const prop: Property = { id: randomUUID(), plan: "free", ...p };
+  async createProperty(userId: string, p: NewProperty, ownerEmail = "") {
+    const prop: Property = {
+      id: randomUUID(),
+      plan: "free",
+      otas: [],
+      website: null,
+      socials: {},
+      postalAddress: "",
+      replyToEmail: "",
+      otaSettings: {},
+      ...p,
+    };
     this.properties.set(prop.id, prop);
     this.members.set(prop.id, [{ userId, email: ownerEmail.toLowerCase(), role: "owner" }]);
     return prop;
+  }
+
+  async updateProperty(propertyId: string, patch: PropertyPatch) {
+    const prop = this.properties.get(propertyId);
+    if (prop) this.properties.set(propertyId, { ...prop, ...patch });
   }
 
   /** Demo/test helper: billing will set this in production. Not part of the Store interface. */

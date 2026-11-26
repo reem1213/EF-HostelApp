@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { completeOnboarding } from "@/app/actions/property";
 import { idle } from "@/app/actions/types";
 import { CostFields } from "@/components/cost-fields";
+import { ProfileFields } from "@/components/profile-fields";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, Input } from "@/components/ui/input";
 
@@ -35,6 +36,12 @@ export function OnboardingForm() {
         <h2 className="text-[16px] font-semibold">Your monthly costs</h2>
         <p className="mb-4 mt-1 text-[13px] text-muted">These make up your cost per bed. Estimates are fine. Skip any you do not know.</p>
         <CostFields errors={e} values={state.values} />
+      </div>
+
+      <div className="rounded-2xl border border-hairline bg-surface p-5">
+        <h2 className="text-[16px] font-semibold">Where guests find you</h2>
+        <p className="mb-4 mt-1 text-[13px] text-muted">Optional, but it powers price comparison and website tips. You can add or change these any time.</p>
+        <ProfileFields errors={e} values={state.values} />
       </div>
 
       <FormMessage {...state} />

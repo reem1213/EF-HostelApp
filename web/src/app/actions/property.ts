@@ -7,6 +7,7 @@ import { z } from "zod";
 import { loadDashboard } from "@/lib/dashboard";
 import type { CostInputs } from "@/lib/domain/costs";
 import { echo, fieldErrors, readCostFields } from "@/lib/forms";
+import { PROFILE_FIELD_NAMES, readProfileForm } from "@/lib/profile-form";
 import { monthOf } from "@/lib/period";
 import { requireProperty, requireSession } from "@/lib/session";
 import { supabaseConfigured, supabaseServer } from "@/lib/supabase/server";
@@ -39,14 +40,18 @@ async function completeOnboardingImpl(_prev: ActionState, fd: FormData): Promise
 
   const p = propertySchema.safeParse({ name: fd.get("name"), beds: fd.get("beds"), country: fd.get("country") ?? "" });
   const costs = readCostFields(fd);
-  if (!p.success || Object.keys(costs.errors).length > 0) {
+  const profile = readProfileForm(fd);
+  if (!p.success || Object.keys(costs.errors).length > 0 || !profile.ok) {
     return {
-      fieldErrors: { ...(p.success ? {} : fieldErrors(p.error)), ...costs.errors },
-      values: echo(fd, ["name", "beds", "country", "rent", "utilities", "staff", "laundry", "breakfast"]),
+      fieldErrors: { ...(p.success ? {} : fieldErrors(p.error)), ...costs.errors, ...(profile.ok ? {} : profile.errors) },
+      values: {
+        ...echo(fd, ["name", "beds", "country", "rent", "utilities", "staff", "laundry", "breakfast", ...PROFILE_FIELD_NAMES]),
+        otas: fd.getAll("otas").map(String).join(","),
+      },
     };
   }
 
-  const property = await session.store.createProperty(session.user.id, { ...p.data, currency: "USD" });
+  const property = await session.store.createProperty(session.user.id, { ...p.data, currency: "USD", ...profile.value }, session.user.email);
   await session.store.saveCostInputs(property.id, toInputs(monthOf(new Date()), costs.cents));
   refresh();
   redirect("/");
@@ -82,6 +87,17 @@ async function saveReviewImpl(_prev: ActionState, fd: FormData): Promise<ActionS
 }
 
 /** Marks a fix as done. Only ids the current audit actually produced are accepted. */
+async function updateProfileImpl(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const { store, property } = await requireProperty();
+  const profile = readProfileForm(fd);
+  if (!profile.ok) {
+    return { fieldErrors: profile.errors, values: { ...echo(fd, PROFILE_FIELD_NAMES), otas: fd.getAll("otas").map(String).join(",") } };
+  }
+  await store.updateProperty(property.id, profile.value);
+  refresh();
+  return { ok: true, message: "Saved." };
+}
+
 async function markFindingDoneImpl(findingId: string): Promise<ActionState> {
   if (typeof findingId !== "string" || findingId.length === 0 || findingId.length > 120) return { error: "Invalid fix." };
   const { store, property } = await requireProperty();
@@ -137,4 +153,8 @@ export async function recategorizeExpense(expenseId: string, category: string): 
 
 export async function changePassword(_prev: ActionState, fd: FormData): Promise<ActionState> {
   return safely("changePassword", () => changePasswordImpl(_prev, fd));
+}
+
+export async function updateProfile(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  return safely("updateProfile", () => updateProfileImpl(_prev, fd));
 }

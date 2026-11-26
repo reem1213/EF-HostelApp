@@ -19,6 +19,13 @@ create table if not exists public.properties (
 -- Upgrade from the earlier version, whose properties table lacked these columns.
 alter table public.properties add column if not exists currency text not null default 'USD';
 alter table public.properties add column if not exists country  text not null default '';
+-- Onboarding profile: which OTAs, website and social links (used for pricing and SEO features).
+alter table public.properties add column if not exists otas            text[] not null default '{}';
+alter table public.properties add column if not exists website         text;
+alter table public.properties add column if not exists socials         jsonb not null default '{}'::jsonb;
+alter table public.properties add column if not exists postal_address  text not null default '';
+alter table public.properties add column if not exists reply_to_email  text not null default '';
+alter table public.properties add column if not exists ota_settings    jsonb not null default '{}'::jsonb;
 
 create unique index if not exists properties_one_per_owner on public.properties(owner_id);
 
@@ -300,8 +307,8 @@ to authenticated;
 -- properties: column-level grants so nobody can set their own plan or owner through the API.
 revoke all on public.properties from authenticated;
 grant select, delete on public.properties to authenticated;
-grant insert (name, beds, currency, country) on public.properties to authenticated;
-grant update (name, beds, currency, country) on public.properties to authenticated;
+grant insert (name, beds, currency, country, otas, website, socials, postal_address, reply_to_email, ota_settings) on public.properties to authenticated;
+grant update (name, beds, currency, country, otas, website, socials, postal_address, reply_to_email, ota_settings) on public.properties to authenticated;
 
 grant select, delete on public.property_members to authenticated;
 grant select, insert, delete on public.property_invites to authenticated;

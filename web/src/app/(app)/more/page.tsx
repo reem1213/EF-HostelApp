@@ -6,6 +6,7 @@ import { ChevronRight, FileUp, PlugZap, Sparkles } from "lucide-react";
 import { signOut } from "@/app/actions/auth";
 import { PageHeader, Section } from "@/components/page-kit";
 import { PasswordForm } from "@/components/password-form";
+import { ProfileForm } from "@/components/profile-form";
 import { TeamPanel } from "@/components/team-panel";
 import { maxSeats } from "@/lib/domain/team";
 import { PageSkeleton } from "@/components/skeleton";
@@ -47,6 +48,12 @@ async function MoreView() {
           </div>
           <p className="mt-3 text-[13.5px] text-muted">Cost tracking, leak alerts and prioritised fixes.</p>
         </div>
+      </Section>
+
+      <Section title="Where guests find you">
+        <ProfileForm
+          defaults={{ otas: property.otas, website: property.website, socials: property.socials, postalAddress: property.postalAddress, replyToEmail: property.replyToEmail }}
+        />
       </Section>
 
       <Section title="Team">

@@ -3,6 +3,8 @@ import type { BookingRow, ExpenseRow, ImportKind, RowError, ShiftRow } from "../
 import type { Benchmark, Booking, DateRange, Expense, ExpenseCategory } from "../domain/types";
 import type { ConnectionStatus, ProviderId } from "../integrations/providers";
 import type { Plan } from "../domain/team";
+import type { OtaSettings } from "../domain/ota";
+import type { Socials } from "../domain/profile";
 
 export type Property = {
   id: string;
@@ -11,7 +13,21 @@ export type Property = {
   currency: string;
   country: string;
   plan: Plan;
+  /** OTA ids the hostel sells on (see OTA_OPTIONS). */
+  otas: string[];
+  website: string | null;
+  socials: Socials;
+  /** Required on every marketing email. */
+  postalAddress: string;
+  replyToEmail: string;
+  otaSettings: OtaSettings;
 };
+
+/** What a new property needs; the profile extras are optional. */
+export type NewProperty = Pick<Property, "name" | "beds" | "currency" | "country"> &
+  Partial<Pick<Property, "otas" | "website" | "socials" | "postalAddress" | "replyToEmail" | "otaSettings">>;
+
+export type PropertyPatch = Partial<Pick<Property, "name" | "beds" | "country" | "otas" | "website" | "socials" | "postalAddress" | "replyToEmail" | "otaSettings">>;
 
 export type Member = { userId: string; email: string; role: "owner" | "manager" };
 
@@ -63,7 +79,8 @@ export interface Store {
   // property
   /** The property this user belongs to (as owner or manager), if any. */
   getProperty(userId: string): Promise<Property | null>;
-  createProperty(userId: string, p: Omit<Property, "id" | "plan">, ownerEmail?: string): Promise<Property>;
+  createProperty(userId: string, p: NewProperty, ownerEmail?: string): Promise<Property>;
+  updateProperty(propertyId: string, patch: PropertyPatch): Promise<void>;
 
   // team
   listMembers(propertyId: string): Promise<Member[]>;

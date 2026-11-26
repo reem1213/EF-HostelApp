@@ -4,7 +4,7 @@ import type { CostInputs } from "../domain/costs";
 import type { BookingRow, ExpenseRow, ImportKind, RowError, ShiftRow } from "../domain/import/parsers";
 import type { Booking, DateRange, ExpenseCategory } from "../domain/types";
 import type { ConnectionStatus, ProviderId } from "../integrations/providers";
-import type { ConnectionRecord, ImportRecord, Member, Property, ReviewSnapshot, Store, StoredExpense, StoredShift } from "./store";
+import type { ConnectionRecord, ImportRecord, Member, NewProperty, Property, PropertyPatch, ReviewSnapshot, Store, StoredExpense, StoredShift } from "./store";
 import type { Plan } from "../domain/team";
 
 /** Supabase implementation of the Store. Row-level security scopes every query to the signed-in user. */
@@ -29,25 +29,59 @@ type Row = Record<string, unknown>;
 export class SupabaseStore implements Store {
   constructor(private readonly db: SupabaseClient) {}
 
+  private static readonly PROPERTY_COLUMNS = "id,name,beds,currency,country,plan,otas,website,socials,postal_address,reply_to_email,ota_settings";
+
   private toProperty(r: Row): Property {
-    return { id: String(r.id), name: String(r.name), beds: Number(r.beds), currency: String(r.currency), country: String(r.country), plan: (r.plan as Plan) ?? "free" };
+    return {
+      id: String(r.id),
+      name: String(r.name),
+      beds: Number(r.beds),
+      currency: String(r.currency),
+      country: String(r.country),
+      plan: (r.plan as Plan) ?? "free",
+      otas: (r.otas as string[] | null) ?? [],
+      website: (r.website as string | null) ?? null,
+      socials: (r.socials as Property["socials"] | null) ?? {},
+      postalAddress: String(r.postal_address ?? ""),
+      replyToEmail: String(r.reply_to_email ?? ""),
+      otaSettings: (r.ota_settings as Property["otaSettings"] | null) ?? {},
+    };
+  }
+
+  private static toColumns(p: PropertyPatch & Partial<NewProperty>): Row {
+    const out: Row = {};
+    if (p.name !== undefined) out.name = p.name;
+    if (p.beds !== undefined) out.beds = p.beds;
+    if (p.currency !== undefined) out.currency = p.currency;
+    if (p.country !== undefined) out.country = p.country;
+    if (p.otas !== undefined) out.otas = p.otas;
+    if (p.website !== undefined) out.website = p.website;
+    if (p.socials !== undefined) out.socials = p.socials;
+    if (p.postalAddress !== undefined) out.postal_address = p.postalAddress;
+    if (p.replyToEmail !== undefined) out.reply_to_email = p.replyToEmail;
+    if (p.otaSettings !== undefined) out.ota_settings = p.otaSettings;
+    return out;
   }
 
   async getProperty(_userId: string) {
     // Row-level security limits this to properties the signed-in user belongs to.
     const data = must(
-      await this.db.from("properties").select("id,name,beds,currency,country,plan").order("created_at").limit(1).maybeSingle(),
+      await this.db.from("properties").select(SupabaseStore.PROPERTY_COLUMNS).order("created_at").limit(1).maybeSingle(),
       "Could not load property",
-    ) as Row | null;
+    ) as unknown as Row | null;
     return data ? this.toProperty(data) : null;
   }
 
-  async createProperty(_userId: string, p: Omit<Property, "id" | "plan">) {
+  async createProperty(_userId: string, p: NewProperty) {
     const data = must(
-      await this.db.from("properties").insert({ name: p.name, beds: p.beds, currency: p.currency, country: p.country }).select("id,name,beds,currency,country,plan").single(),
+      await this.db.from("properties").insert(SupabaseStore.toColumns(p)).select(SupabaseStore.PROPERTY_COLUMNS).single(),
       "Could not create property",
-    ) as Row;
+    ) as unknown as Row;
     return this.toProperty(data);
+  }
+
+  async updateProperty(propertyId: string, patch: PropertyPatch) {
+    must(await this.db.from("properties").update(SupabaseStore.toColumns(patch)).eq("id", propertyId), "Could not update property");
   }
 
   async listMembers(propertyId: string) {
